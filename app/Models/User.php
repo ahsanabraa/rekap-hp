@@ -20,8 +20,29 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'role',
         'password',
     ];
+
+    public function student(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Student::class);
+    }
+
+    public function homeroomClass(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(SchoolClass::class, 'homeroom_user_id');
+    }
+
+    public function recordedCollectionRecords(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CollectionRecord::class, 'recorded_by');
+    }
+
+    public function reviewedLoanRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(LoanRequest::class, 'reviewed_by');
+    }
 
     /**
      * The attributes that should be hidden for serialization.
