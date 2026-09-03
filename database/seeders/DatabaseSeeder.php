@@ -9,9 +9,6 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         User::updateOrCreate(
@@ -27,7 +24,7 @@ class DatabaseSeeder extends Seeder
         $waliKelas = User::updateOrCreate(
             ['email' => 'walikelas@example.com'],
             [
-                'name' => 'Wali Kelas Demo',
+                'name' => 'Pak Budi Santoso',
                 'role' => 'wali_kelas',
                 'email_verified_at' => now(),
                 'password' => 'password',
@@ -42,22 +39,55 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        $studentUser = User::updateOrCreate(
-            ['email' => 'siswa@example.com'],
-            [
-                'name' => 'Siswa Demo',
-                'role' => 'siswa',
-                'email_verified_at' => now(),
-                'password' => 'password',
-            ],
-        );
+        $students = [
+            'Ahmad Fadillah',
+            'Aisyah Putri Ramadhani',
+            'Bambang Setiawan',
+            'Citra Dewi Lestari',
+            'Dimas Prayoga',
+            'Febrianti Sari',
+            'Gilang Ramadhan',
+            'Hanifah Nur Azizah',
+            'Irfan Hakim',
+            'Joko Widodo Putra',
+            'Kartika Sari',
+            'Luthfi Hidayat',
+            'Maya Anggraini',
+            'Nanda Pratama',
+            'Omar Daniel',
+            'Putri Wulandari',
+            'Rizky Aditya',
+            'Siti Nurhaliza',
+            'Taufik Rahman',
+            'Ulya Maghfiroh',
+            'Vito Alvaro',
+            'Winda Oktaviani',
+            'Yusuf Maulana',
+            'Zahra Amalia',
+            'Aditya Nugraha',
+        ];
 
-        Student::updateOrCreate(
-            ['user_id' => $studentUser->id],
-            [
-                'class_id' => $schoolClass->id,
-                'nis' => 'DEMO001',
-            ],
-        );
+        foreach ($students as $index => $name) {
+            $nis = str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT);
+            $slug = strtolower(explode(' ', $name)[0]);
+
+            $user = User::updateOrCreate(
+                ['email' => "{$slug}{$nis}@demo.com"],
+                [
+                    'name' => $name,
+                    'role' => 'siswa',
+                    'email_verified_at' => now(),
+                    'password' => 'password',
+                ],
+            );
+
+            Student::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'class_id' => $schoolClass->id,
+                    'nis' => $nis,
+                ],
+            );
+        }
     }
 }

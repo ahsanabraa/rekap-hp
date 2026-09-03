@@ -4,7 +4,8 @@ import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { FiBookOpen, FiCheck, FiClock, FiInfo, FiSend, FiSmartphone, FiUsers, FiX } from 'react-icons/fi';
+import { useEffect, useRef, useState } from 'react';
+import { FiBookOpen, FiCheck, FiChevronDown, FiClock, FiInfo, FiSend, FiSmartphone, FiUsers, FiX } from 'react-icons/fi';
 
 const statusOptions = [
     { value: 'dikumpulkan', label: 'Kumpul', icon: FiCheck, className: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
@@ -28,8 +29,106 @@ function KesiswaanDashboard({ classes = [], date }) {
 
 function CollectionList({ schoolClass }) {
     const students = schoolClass?.students ?? [];
-    function updateStatus(studentId, status) { router.post(route('collection-records.status', studentId), { status }, { preserveScroll: true }); }
-    return <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-100 px-6 py-4"><h2 className="font-semibold text-slate-900">Daftar pengumpulan HP</h2><p className="mt-1 text-sm text-slate-500">Klik status sesuai kondisi siswa hari ini.</p></div><div className="divide-y divide-slate-100">{students.map((student) => { const currentStatus = student.collection_records?.[0]?.status; return <div key={student.id} className="flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 font-bold text-sky-600">{student.user.name.charAt(0)}</div><div><p className="font-semibold text-slate-900">{student.user.name}</p><p className="text-sm text-slate-500">NIS {student.nis} {currentStatus && <span className="ml-2 font-medium text-sky-600">· {statusLabels[currentStatus]}</span>}</p></div></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{statusOptions.map(({ value, label, icon: Icon, className }) => <button key={value} type="button" onClick={() => updateStatus(student.id, value)} className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${className} ${currentStatus === value ? 'ring-2 ring-sky-300 ring-offset-1' : ''}`}><Icon />{label}</button>)}</div></div>; })}</div></div>;
+    const [openDropdown, setOpenDropdown] = useState(null);
+    const dropdownRef = useRef(null);
+
+    function updateStatus(studentId, status) {
+        router.post(route('collection-records.status', studentId), { status }, { preserveScroll: true });
+        setOpenDropdown(null);
+    }
+
+    function toggleDropdown(studentId) {
+        setOpenDropdown(openDropdown === studentId ? null : studentId);
+    }
+
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setOpenDropdown(null);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-6 py-4">
+                <h2 className="font-semibold text-slate-900">Daftar pengumpulan HP</h2>
+                <p className="mt-1 text-sm text-slate-500">Klik badge status untuk mengubah keterangan siswa.</p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th className="px-6 py-3">No</th>
+                            <th className="px-6 py-3">Nama</th>
+                            <th className="px-6 py-3">NIS</th>
+                            <th className="px-6 py-3 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {students.map((student, index) => {
+                            const currentStatus = student.collection_records?.[0]?.status;
+                            const isOpen = openDropdown === student.id;
+                            const activeOption = statusOptions.find((s) => s.value === currentStatus);
+                            return (
+                                <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 text-slate-500">{index + 1}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-xs font-bold text-sky-600">
+                                                {student.user.name.charAt(0)}
+                                            </div>
+                                            <span className="font-semibold text-slate-900">{student.user.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-500">{student.nis}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="relative inline-block" ref={isOpen ? dropdownRef : undefined}>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleDropdown(student.id)}
+                                                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:opacity-80 ${activeOption?.className ?? 'border-slate-200 bg-slate-50 text-slate-500'}`}
+                                            >
+                                                {activeOption ? (
+                                                    <>
+                                                        <activeOption.icon className="h-3.5 w-3.5" />
+                                                        {activeOption.label}
+                                                    </>
+                                                ) : (
+                                                    'Pilih status'
+                                                )}
+                                                <FiChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {isOpen && (
+                                                <div className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                                                    {statusOptions.map(({ value, label, icon: Icon, className }) => {
+                                                        const colorClass = className.split(' ').find((c) => c.startsWith('text-')) ?? 'text-slate-500';
+                                                        return (
+                                                            <button
+                                                                key={value}
+                                                                type="button"
+                                                                onClick={() => updateStatus(student.id, value)}
+                                                                className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs transition hover:bg-slate-50 ${currentStatus === value ? 'bg-slate-50 font-semibold' : 'font-medium text-slate-600'}`}
+                                                            >
+                                                                <Icon className={`h-4 w-4 ${colorClass}`} />
+                                                                {label}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
 }
 
 function LoanRequestsForTeacher({ loanRequests = [] }) {

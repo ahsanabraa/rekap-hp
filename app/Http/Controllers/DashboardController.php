@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class DashboardController extends Controller
 {
@@ -90,7 +91,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function updateCollectionStatus(Request $request, int $student): RedirectResponse
+    public function updateCollectionStatus(Request $request, int $student): Response|RedirectResponse
     {
         $validated = $request->validate([
             'status' => ['required', 'in:'.implode(',', CollectionRecord::STATUSES)],
@@ -112,6 +113,38 @@ class DashboardController extends Controller
             ],
         );
 
-        return back()->with('success', 'Status pengumpulan diperbarui.');
+        $freshClass = $request->user()->homeroomClass()->with([
+            'students.user:id,name',
+            'students.collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
+        ])->first();
+
+        $loanRequests = $freshClass
+            ? $freshClass->students()->with('user:id,name')->whereHas('loanRequests')->with([
+                'collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
+                'loanRequests' => fn ($query) => $query->latest()->orderByDesc('id'),
+            ])->get()->flatMap(fn ($student) => $student->loanRequests->values()->map(function ($loanRequest, $index) use ($student) {
+                $record = $student->collectionRecords->where('loan_request_id', $loanRequest->id)->first();
+                $isLatestRequest = $index === 0;
+                $returnedAt = $isLatestRequest ? $record?->returned_at : null;
+
+                $loanRequest->setAttribute('student_name', $student->user->name);
+                $loanRequest->setAttribute('collection_status', $record?->status);
+                $loanRequest->setAttribute('returned_at', $returnedAt);
+                $loanRequest->setAttribute('can_return', $isLatestRequest && $loanRequest->status === 'acc' && $record?->status === 'sedang_dipinjam');
+                $loanRequest->setAttribute('can_review', $isLatestRequest && $loanRequest->status === 'pending');
+                $isReturnedLate = $returnedAt && $loanRequest->ends_at && $returnedAt->gt($loanRequest->ends_at);
+                $isStillBorrowedLate = $record?->status === 'sedang_dipinjam' && $loanRequest->ends_at?->isPast();
+                $loanRequest->setAttribute('is_late', $isLatestRequest && $loanRequest->status === 'acc' && ($isStillBorrowedLate || $isReturnedLate));
+
+                return $loanRequest;
+            }))->sortByDesc('id')->values()
+            : collect();
+
+        return Inertia::render('Dashboard', [
+            'role' => 'wali_kelas',
+            'schoolClass' => $freshClass,
+            'loanRequests' => $loanRequests,
+            'date' => today()->toDateString(),
+        ]);
     }
 }
