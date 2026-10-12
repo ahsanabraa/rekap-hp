@@ -1,38 +1,54 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head } from '@inertiajs/react';
-import DeleteUserForm from './Partials/DeleteUserForm';
-import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
+import UpdatePasswordForm from './Partials/UpdatePasswordForm';
+import DeleteUserForm from './Partials/DeleteUserForm';
+import { Card } from '@/Components/ui/card';
 
 export default function Edit({ mustVerifyEmail, status }) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Profile
-                </h2>
+                <>
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary-light text-primary">
+                        Pengaturan
+                    </span>
+                    <h1 className="mt-3 text-2xl font-semibold tracking-tight text-text">Profil</h1>
+                </>
             }
         >
-            <Head title="Profile" />
+            <Head title="Profil" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <UpdateProfileInformationForm
-                            mustVerifyEmail={mustVerifyEmail}
-                            status={status}
-                            className="max-w-xl"
-                        />
+            <div className="space-y-5 max-w-2xl">
+                <Card>
+                    <div className="p-5 border-b">
+                        <h2 className="text-lg font-medium text-text">Informasi Profil</h2>
+                        <p className="mt-0.5 text-sm text-text-secondary">Update informasi akun Anda.</p>
                     </div>
+                    <div className="p-5">
+                        <UpdateProfileInformationForm mustVerifyEmail={mustVerifyEmail} status={status} />
+                    </div>
+                </Card>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <UpdatePasswordForm className="max-w-xl" />
+                <Card>
+                    <div className="p-5 border-b">
+                        <h2 className="text-lg font-medium text-text">Ubah Password</h2>
+                        <p className="mt-0.5 text-sm text-text-secondary">Pastikan akun Anda menggunakan password yang aman.</p>
                     </div>
+                    <div className="p-5">
+                        <UpdatePasswordForm />
+                    </div>
+                </Card>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <DeleteUserForm className="max-w-xl" />
+                <Card className="border-danger-light">
+                    <div className="p-5 border-b">
+                        <h2 className="text-lg font-medium text-text">Hapus Akun</h2>
+                        <p className="mt-0.5 text-sm text-text-secondary">Tindakan ini permanen dan tidak dapat dibatalkan.</p>
                     </div>
-                </div>
+                    <div className="p-5">
+                        <DeleteUserForm />
+                    </div>
+                </Card>
             </div>
         </AuthenticatedLayout>
     );

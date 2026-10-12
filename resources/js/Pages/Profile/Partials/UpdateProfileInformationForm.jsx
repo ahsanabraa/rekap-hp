@@ -1,113 +1,83 @@
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
-import { Transition } from '@headlessui/react';
-import { Link, useForm, usePage } from '@inertiajs/react';
+import { useForm, usePage, Link } from '@inertiajs/react';
+import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
+import { Label } from '@/Components/ui/label';
 
-export default function UpdateProfileInformation({
-    mustVerifyEmail,
-    status,
-    className = '',
-}) {
+export default function UpdateProfileInformation({ mustVerifyEmail, status }) {
     const user = usePage().props.auth.user;
 
-    const { data, setData, patch, errors, processing, recentlySuccessful } =
-        useForm({
-            name: user.name,
-            email: user.email,
-        });
+    const { data, setData, patch, errors, processing, recentlySuccessful } = useForm({
+        name: user.name,
+        email: user.email ?? '',
+    });
 
     const submit = (e) => {
         e.preventDefault();
-
         patch(route('profile.update'));
     };
 
     return (
-        <section className={className}>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">
-                    Profile Information
-                </h2>
+        <form onSubmit={submit} className="space-y-5">
+            <div className="space-y-2">
+                <Label htmlFor="name">Nama</Label>
+                <Input
+                    id="name"
+                    value={data.name}
+                    onChange={(e) => setData('name', e.target.value)}
+                    required
+                    autoComplete="name"
+                    disabled={processing}
+                />
+                {errors.name && <p className="error-text" role="alert">{errors.name}</p>}
+            </div>
 
-                <p className="mt-1 text-sm text-gray-600">
-                    Update your account's profile information and email address.
-                </p>
-            </header>
-
-            <form onSubmit={submit} className="mt-6 space-y-6">
-                <div>
-                    <InputLabel htmlFor="name" value="Name" />
-
-                    <TextInput
-                        id="name"
-                        className="mt-1 block w-full"
-                        value={data.name}
-                        onChange={(e) => setData('name', e.target.value)}
-                        required
-                        isFocused
-                        autoComplete="name"
-                    />
-
-                    <InputError className="mt-2" message={errors.name} />
+            <div className="space-y-2">
+                <Label>Username</Label>
+                <div className="flex h-10 items-center rounded-md border border-border bg-bg-secondary px-3 text-sm text-text-muted">
+                    @{user.username}
                 </div>
+            </div>
 
-                <div>
-                    <InputLabel htmlFor="email" value="Email" />
+            <div className="space-y-2">
+                <Label htmlFor="email">Email (opsional)</Label>
+                <Input
+                    id="email"
+                    type="email"
+                    value={data.email}
+                    onChange={(e) => setData('email', e.target.value)}
+                    autoComplete="email"
+                    disabled={processing}
+                />
+                {errors.email && <p className="error-text" role="alert">{errors.email}</p>}
+            </div>
 
-                    <TextInput
-                        id="email"
-                        type="email"
-                        className="mt-1 block w-full"
-                        value={data.email}
-                        onChange={(e) => setData('email', e.target.value)}
-                        required
-                        autoComplete="username"
-                    />
-
-                    <InputError className="mt-2" message={errors.email} />
+            {mustVerifyEmail && user.email_verified_at === null && (
+                <div className="rounded-lg border border-warning-light bg-warning-light p-4">
+                    <p className="text-sm text-warning">
+                        Alamat email Anda belum diverifikasi.
+                        <Link
+                            href={route('verification.send')}
+                            method="post"
+                            as="button"
+                            className="underline hover:text-warning/80"
+                        >
+                            {' '}Kirim ulang verifikasi.
+                        </Link>
+                    </p>
+                    {status === 'verification-link-sent' && (
+                        <div className="mt-2 text-sm font-medium text-success">
+                            Link verifikasi baru telah dikirim ke email Anda.
+                        </div>
+                    )}
                 </div>
+            )}
 
-                {mustVerifyEmail && user.email_verified_at === null && (
-                    <div>
-                        <p className="mt-2 text-sm text-gray-800">
-                            Your email address is unverified.
-                            <Link
-                                href={route('verification.send')}
-                                method="post"
-                                as="button"
-                                className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                            >
-                                Click here to re-send the verification email.
-                            </Link>
-                        </p>
-
-                        {status === 'verification-link-sent' && (
-                            <div className="mt-2 text-sm font-medium text-green-600">
-                                A new verification link has been sent to your
-                                email address.
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <div className="flex items-center gap-4">
-                    <PrimaryButton disabled={processing}>Save</PrimaryButton>
-
-                    <Transition
-                        show={recentlySuccessful}
-                        enter="transition ease-in-out"
-                        enterFrom="opacity-0"
-                        leave="transition ease-in-out"
-                        leaveTo="opacity-0"
-                    >
-                        <p className="text-sm text-gray-600">
-                            Saved.
-                        </p>
-                    </Transition>
-                </div>
-            </form>
-        </section>
+            <div className="flex items-center gap-3 pt-4 border-t">
+                <Button type="submit" disabled={processing}>
+                    {processing ? 'Menyimpan...' : 'Simpan'}
+                </Button>
+                {recentlySuccessful && <span className="text-sm text-success">Tersimpan.</span>}
+            </div>
+        </form>
     );
 }

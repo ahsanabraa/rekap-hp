@@ -21,6 +21,10 @@ class DashboardController extends Controller
             return Inertia::render('Dashboard', [
                 'role' => 'kesiswaan',
                 'classes' => SchoolClass::with('homeroom:id,name')
+                    ->with([
+                        'students.user:id,name',
+                        'students.collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
+                    ])
                     ->withCount('students')
                     ->withCount([
                         'students as collected_students_count' => fn ($query) => $query->whereHas(

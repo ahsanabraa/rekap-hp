@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LoanRequestController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -51,6 +52,13 @@ Route::middleware(['auth', 'role:kesiswaan'])->group(function () {
 
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');
     Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+
+    Route::post('/teachers/{user}/reset-password', [PasswordResetController::class, 'resetTeacher'])
+        ->name('teachers.reset-password');
 });
+
+Route::post('/students/{student}/reset-password', [PasswordResetController::class, 'resetStudent'])
+    ->middleware(['auth', 'role:wali_kelas,kesiswaan'])
+    ->name('students.reset-password');
 
 require __DIR__.'/auth.php';

@@ -14,7 +14,7 @@ class ClassController extends Controller
     public function index(): Response
     {
         return Inertia::render('Classes/Index', [
-            'classes' => SchoolClass::with('homeroom:id,name,email')
+            'classes' => SchoolClass::with('homeroom:id,name,username')
                 ->withCount('students')
                 ->orderBy('grade')
                 ->orderBy('group_name')
@@ -22,7 +22,7 @@ class ClassController extends Controller
             'teachers' => User::query()
                 ->where('role', 'wali_kelas')
                 ->orderBy('name')
-                ->get(['id', 'name', 'email']),
+                ->get(['id', 'name', 'username']),
         ]);
     }
 

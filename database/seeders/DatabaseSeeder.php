@@ -12,21 +12,23 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'kesiswaan@example.com'],
+            ['username' => 'kesiswaan'],
             [
                 'name' => 'Admin Kesiswaan',
                 'role' => 'kesiswaan',
-                'email_verified_at' => now(),
+                'email' => null,
+                'email_verified_at' => null,
                 'password' => 'password',
             ],
         );
 
         $waliKelas = User::updateOrCreate(
-            ['email' => 'walikelas@example.com'],
+            ['username' => 'budi.santoso'],
             [
                 'name' => 'Pak Budi Santoso',
                 'role' => 'wali_kelas',
-                'email_verified_at' => now(),
+                'email' => null,
+                'email_verified_at' => null,
                 'password' => 'password',
             ],
         );
@@ -69,14 +71,15 @@ class DatabaseSeeder extends Seeder
 
         foreach ($students as $index => $name) {
             $nis = str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT);
-            $slug = strtolower(explode(' ', $name)[0]);
 
+            // Username siswa = NIS agar mudah diingat.
             $user = User::updateOrCreate(
-                ['email' => "{$slug}{$nis}@demo.com"],
+                ['username' => $nis],
                 [
                     'name' => $name,
                     'role' => 'siswa',
-                    'email_verified_at' => now(),
+                    'email' => null,
+                    'email_verified_at' => null,
                     'password' => 'password',
                 ],
             );

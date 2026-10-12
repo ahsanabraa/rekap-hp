@@ -8,7 +8,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,7 +16,7 @@ class StudentController extends Controller
     public function index(): Response
     {
         return Inertia::render('Students/Index', [
-            'students' => Student::with(['user:id,name,email', 'schoolClass:id,name'])
+            'students' => Student::with(['user:id,name,username', 'schoolClass:id,name'])
                 ->orderBy('nis')
                 ->get(),
             'classes' => SchoolClass::orderBy('grade')
@@ -30,17 +29,17 @@ class StudentController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'nis' => ['required', 'string', 'max:30', 'unique:students,nis'],
+            // Username otomatis = NIS agar mudah diingat siswa.
+            'nis' => ['required', 'string', 'max:30', 'unique:students,nis', 'unique:users,username'],
             'class_id' => ['required', 'exists:classes,id'],
         ]);
 
         DB::transaction(function () use ($validated): void {
             $user = User::create([
                 'name' => $validated['name'],
-                'email' => $validated['email'],
+                'username' => $validated['nis'],
                 'role' => 'siswa',
-                'password' => Hash::make('password'),
+                'password' => 'password',
             ]);
 
             Student::create([
