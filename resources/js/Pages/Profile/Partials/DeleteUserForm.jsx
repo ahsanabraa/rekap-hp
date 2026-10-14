@@ -64,7 +64,7 @@ export default function DeleteUserForm() {
                     </div>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={closeModal}>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={deleteUser} className="bg-danger hover:bg-danger/90" disabled={processing}>
+                        <AlertDialogAction onClick={deleteUser} className="bg-danger hover:bg-[hsl(0_84%_55%)]" disabled={processing}>
                             {processing ? 'Menghapus...' : 'Hapus Akun'}
                         </AlertDialogAction>
                     </AlertDialogFooter>

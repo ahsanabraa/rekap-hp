@@ -1,4 +1,6 @@
+import { useMemo, useState, memo } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -22,6 +24,7 @@ import {
     RotateCcw,
     Loader2,
     Calendar,
+    Search,
 } from 'lucide-react';
 
 const statusOptions = [
@@ -52,61 +55,109 @@ const statusStyles = {
 };
 
 const requestStatus = { pending: 'Menunggu', acc: 'Disetujui', dec: 'Ditolak' };
-const formatDate = (date) => new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+const formatDate = (date) => {
+    try {
+        return new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+        return date;
+    }
+};
 const formatTime = (date) => new Date(date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-function PageHeader({ role, title, subtitle }) {
-    const roleLabels = { kesiswaan: 'Kesiswaan', wali_kelas: 'Wali Kelas', siswa: 'Siswa' };
-    const roleColors = { kesiswaan: 'bg-primary-light text-primary', wali_kelas: 'bg-success-light text-success', siswa: 'bg-warning-light text-warning' };
-    
+function PageHeader({ title, subtitle, date }) {
     return (
-        <div className="mb-6">
-            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${roleColors[role]}`}>
-                {roleLabels[role]}
-            </span>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-text">{title}</h1>
-            {subtitle && <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>}
+        <div className="mb-5">
+            {(date || subtitle) && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
+                    <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                    {date ? formatDate(date) : subtitle}
+                </span>
+            )}
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text">{title}</h1>
         </div>
     );
 }
 
+function StatCard({ icon: Icon, label, value, hint, tone = 'primary' }) {
+    const tones = {
+        primary: 'bg-primary-light text-primary',
+        success: 'bg-success-light text-success',
+        warning: 'bg-warning-light text-warning',
+        danger: 'bg-danger-light text-danger',
+        neutral: 'bg-bg-tertiary text-text-secondary',
+    };
+    return (
+        <Card>
+            <div className="flex items-center gap-3 p-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}>
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                    <p className="text-xs text-text-muted">{label}</p>
+                    <p className="truncate text-xl font-semibold tabular-nums tracking-tight text-text">{value}</p>
+                    {hint && <p className="truncate text-xs text-text-secondary">{hint}</p>}
+                </div>
+            </div>
+        </Card>
+    );
+}
+
 function KesiswaanDashboard({ classes = [], date }) {
+    const summary = useMemo(() => {
+        const totalStudents = classes.reduce((sum, c) => sum + (c.students_count ?? 0), 0);
+        const totalCollected = classes.reduce((sum, c) => sum + (c.collected_students_count ?? 0), 0);
+        const doneClasses = classes.filter(
+            (c) => (c.students_count ?? 0) > 0 && c.collected_students_count >= c.students_count
+        ).length;
+        const pct = totalStudents ? Math.round((totalCollected / totalStudents) * 100) : 0;
+        return { totalStudents, totalCollected, doneClasses, pct };
+    }, [classes]);
+
     return (
         <div>
             <Head title="Dashboard" />
-            <PageHeader role="kesiswaan" title="Monitoring Kelas" subtitle={`Ringkasan ${date}`} />
-            
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-6">
+            <PageHeader title="Monitoring Kelas" date={date} />
+
+            <div className="mb-5 grid gap-3 sm:grid-cols-3">
+                <StatCard icon={Users} label="Total siswa" value={summary.totalStudents} hint={`${summary.totalCollected} sudah mengumpulkan`} tone="primary" />
+                <StatCard icon={Check} label="Tingkat pengumpulan" value={`${summary.pct}%`} hint="Semua kelas hari ini" tone="success" />
+                <StatCard icon={BookOpen} label="Kelas lengkap" value={`${summary.doneClasses}/${classes.length}`} hint="100% terkumpul" tone={summary.doneClasses === classes.length && classes.length > 0 ? 'success' : 'warning'} />
+            </div>
+
+            <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {classes.map((schoolClass) => {
                     const progress = schoolClass.students_count
                         ? Math.round((schoolClass.collected_students_count / schoolClass.students_count) * 100)
                         : 0;
                     const collected = schoolClass.collected_students_count;
                     const total = schoolClass.students_count;
-                    
+                    const done = total > 0 && collected >= total;
+
                     return (
-                        <Card key={schoolClass.id} className="hover:shadow-md transition-shadow">
-                            <div className="p-5">
-                                <div className="flex items-start justify-between gap-4">
+                        <Card key={schoolClass.id}>
+                            <div className="p-4">
+                                <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <p className="font-medium text-text truncate">{schoolClass.name}</p>
-                                        <p className="mt-0.5 text-sm text-text-secondary">{schoolClass.homeroom?.name ?? 'Belum ada wali kelas'}</p>
+                                        <p className="truncate text-sm font-semibold text-text">{schoolClass.name}</p>
+                                        <p className="mt-0.5 truncate text-xs text-text-secondary">{schoolClass.homeroom?.name ?? 'Belum ada wali kelas'}</p>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1 shrink-0">
-                                        <span className="text-2xl font-semibold text-text">{collected}/{total}</span>
-                                        <span className="text-xs text-text-muted">{progress}%</span>
-                                    </div>
+                                    <Badge variant={done ? 'success' : progress >= 70 ? 'primary' : 'warning'}>
+                                        {done ? 'Lengkap' : `${progress}%`}
+                                    </Badge>
                                 </div>
-                                <Progress value={progress} className="mt-4 h-1.5" />
+                                <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-text">
+                                    {collected}<span className="text-sm font-normal text-text-muted">/{total}</span>
+                                </p>
+                                <Progress value={progress} className="mt-2 h-1.5" />
                             </div>
                         </Card>
                     );
                 })}
                 {classes.length === 0 && (
-                    <Card className="sm:col-span-2 lg:col-span-3 xl:col-span-4 border-dashed">
+                    <Card className="border-dashed sm:col-span-2 lg:col-span-3">
                         <div className="p-8 text-center">
                             <BookOpen className="mx-auto h-10 w-10 text-text-muted opacity-50" aria-hidden="true" />
-                            <p className="mt-3 font-medium text-text">Belum ada kelas</p>
+                            <p className="mt-3 text-sm font-medium text-text">Belum ada kelas</p>
                             <p className="mt-1 text-sm text-text-secondary">Tambah kelas untuk memulai monitoring</p>
                         </div>
                     </Card>
@@ -115,25 +166,28 @@ function KesiswaanDashboard({ classes = [], date }) {
 
             {classes.length > 0 && (
                 <Card>
-                    <div className="p-5 border-b">
-                        <h2 className="text-lg font-medium text-text">Detail Kelas</h2>
+                    <div className="border-b px-4 py-3 sm:px-5">
+                        <h2 className="text-sm font-semibold text-text">Detail per kelas</h2>
+                        <p className="mt-0.5 text-xs text-text-secondary">Status terkini tiap siswa, read-only</p>
                     </div>
                     <Tabs defaultValue={String(classes[0]?.id ?? '')}>
-                        <div className="border-b px-3 pt-3 sm:px-5">
-                            <TabsList className="h-auto w-full justify-start gap-1.5 bg-transparent p-0">
-                                {classes.map((schoolClass) => (
-                                    <TabsTrigger
-                                        key={schoolClass.id}
-                                        value={String(schoolClass.id)}
-                                        className="rounded-t-lg border border-b-0 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-border data-[state=active]:bg-white data-[state=active]:text-text data-[state=active]:shadow-none"
-                                    >
-                                        {schoolClass.name}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
+                        <div className="border-b px-3 pt-3 sm:px-4">
+                            <div className="overflow-x-auto scrollbar-thin">
+                                <TabsList className="h-auto w-max min-w-full justify-start gap-1 bg-transparent p-0">
+                                    {classes.map((schoolClass) => (
+                                        <TabsTrigger
+                                            key={schoolClass.id}
+                                            value={String(schoolClass.id)}
+                                            className="whitespace-nowrap rounded-t-lg border border-b-0 border-transparent px-4 py-2.5 text-sm data-[state=active]:border-border data-[state=active]:bg-white data-[state=active]:text-text data-[state=active]:shadow-none"
+                                        >
+                                            {schoolClass.name}
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </div>
                         </div>
                         {classes.map((schoolClass) => (
-                            <TabsContent key={schoolClass.id} value={String(schoolClass.id)} className="mt-0 p-5">
+                            <TabsContent key={schoolClass.id} value={String(schoolClass.id)} className="mt-0 p-4 sm:p-5">
                                 <CollectionList schoolClass={schoolClass} interactive={false} />
                             </TabsContent>
                         ))}
@@ -144,8 +198,93 @@ function KesiswaanDashboard({ classes = [], date }) {
     );
 }
 
+const StudentRow = memo(function StudentRow({ student, interactive, onStatusChange, onResetPassword }) {
+    const currentStatus = student.collection_records?.[0]?.status;
+    const activeOption = statusOptions.find((s) => s.value === currentStatus);
+    const ActiveIcon = activeOption?.icon;
+
+    return (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-3 transition-colors duration-150 hover:bg-bg-secondary sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="avatar avatar-md shrink-0" aria-hidden="true">
+                    {student.user.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-text">{student.user.name}</p>
+                    <p className="text-xs tabular-nums text-text-muted">{student.nis}</p>
+                </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+                {interactive ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className={cn(
+                                    'min-w-[132px] justify-between gap-1.5 font-medium',
+                                    activeOption
+                                        ? statusStyles[activeOption.variant].button
+                                        : 'border-border bg-white text-text-secondary'
+                                )}
+                            >
+                                <span className="inline-flex items-center gap-1.5">
+                                    {activeOption && ActiveIcon ? (
+                                        <>
+                                            <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                                            {activeOption.label}
+                                        </>
+                                    ) : (
+                                        'Pilih status'
+                                    )}
+                                </span>
+                                <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {statusOptions.map(({ value, label, icon: Icon, variant }) => (
+                                <DropdownMenuItem
+                                    key={value}
+                                    className={cn('flex items-center gap-2', currentStatus === value && 'bg-bg-secondary font-medium')}
+                                    onClick={() => onStatusChange(student.id, value)}
+                                >
+                                    <Icon className={cn('h-4 w-4', statusStyles[variant].icon)} aria-hidden="true" />
+                                    {label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : (
+                    activeOption && ActiveIcon ? (
+                        <Badge variant={activeOption.variant}>
+                            <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                            {activeOption.label}
+                        </Badge>
+                    ) : (
+                        <Badge variant="neutral">Belum didata</Badge>
+                    )
+                )}
+                {interactive && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onResetPassword(student)}
+                        className="h-9 w-9 text-text-muted hover:text-text"
+                        aria-label={`Reset password ${student.user.name}`}
+                        title="Reset password ke default"
+                    >
+                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+});
+
 function CollectionList({ schoolClass, interactive = true }) {
     const students = schoolClass?.students ?? [];
+    const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState('all');
 
     function updateStatus(studentId, status) {
         router.post(route('collection-records.status', studentId), { status }, { preserveScroll: true });
@@ -156,6 +295,16 @@ function CollectionList({ schoolClass, interactive = true }) {
             router.post(route('students.reset-password', student.id), {}, { preserveScroll: true });
         }
     }
+
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        return students.filter((s) => {
+            const status = s.collection_records?.[0]?.status ?? 'none';
+            if (filter !== 'all' && status !== filter) return false;
+            if (!q) return true;
+            return s.user.name.toLowerCase().includes(q) || String(s.nis).toLowerCase().includes(q);
+        });
+    }, [students, query, filter]);
 
     if (students.length === 0) {
         return (
@@ -168,87 +317,58 @@ function CollectionList({ schoolClass, interactive = true }) {
     }
 
     return (
-        <div className="space-y-3">
-            {students.map((student) => {
-                const currentStatus = student.collection_records?.[0]?.status;
-                const activeOption = statusOptions.find((s) => s.value === currentStatus);
-                const ActiveIcon = activeOption?.icon;
-                return (
-                    <div
-                        key={student.id}
-                        className="flex flex-col gap-3 rounded-lg border border-border bg-white p-4 transition-colors hover:bg-bg-secondary sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                    >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                            <div className="avatar avatar-md shrink-0">
-                                {student.user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                                <p className="truncate font-medium text-text">{student.user.name}</p>
-                                <p className="text-sm text-text-muted">{student.nis}</p>
-                            </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                            {interactive ? (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                'gap-1.5',
-                                                activeOption
-                                                    ? statusStyles[activeOption.variant].button
-                                                    : 'border-border bg-white text-text-secondary'
-                                            )}
-                                        >
-                                            {activeOption && ActiveIcon ? (
-                                                <>
-                                                    <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                                                    {activeOption.label}
-                                                </>
-                                            ) : (
-                                                'Pilih status'
-                                            )}
-                                            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        {statusOptions.map(({ value, label, icon: Icon, variant }) => (
-                                            <DropdownMenuItem
-                                                key={value}
-                                                className={cn('flex items-center gap-2', currentStatus === value && 'bg-bg-secondary font-medium')}
-                                                onClick={() => updateStatus(student.id, value)}
-                                            >
-                                                <Icon className={cn('h-4 w-4', statusStyles[variant].icon)} aria-hidden="true" />
-                                                {label}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            ) : (
-                                activeOption && ActiveIcon ? (
-                                    <Badge variant={activeOption.variant}>
-                                        <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                                        {activeOption.label}
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="neutral">Belum didata</Badge>
-                                )
+        <div>
+            <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+                <div className="relative min-w-0 flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                    <Input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Cari nama atau NIS…"
+                        className="pl-9"
+                        aria-label="Cari siswa"
+                    />
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter status">
+                    {[{ v: 'all', l: 'Semua' }, ...statusOptions.map((s) => ({ v: s.value, l: s.label }))].map((o) => (
+                        <button
+                            key={o.v}
+                            type="button"
+                            onClick={() => setFilter(o.v)}
+                            aria-pressed={filter === o.v}
+                            className={cn(
+                                'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                                filter === o.v
+                                    ? 'border-transparent bg-text text-white'
+                                    : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text'
                             )}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => resetPassword(student)}
-                                className="text-primary hover:text-primary/80"
-                                aria-label={`Reset password ${student.user.name}`}
-                            >
-                                <RotateCcw className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                                Reset PW
-                            </Button>
-                        </div>
-                    </div>
-                );
-            })}
+                        >
+                            {o.l}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <p className="mb-2 text-xs tabular-nums text-text-muted" role="status">
+                Menampilkan {filtered.length} dari {students.length} siswa
+            </p>
+            {filtered.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border bg-bg-secondary px-4 py-8 text-center">
+                    <p className="text-sm font-medium text-text">Tidak ada hasil</p>
+                    <p className="mt-1 text-xs text-text-secondary">Coba kata kunci atau filter lain</p>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {filtered.map((student) => (
+                        <StudentRow
+                            key={student.id}
+                            student={student}
+                            interactive={interactive}
+                            onStatusChange={updateStatus}
+                            onResetPassword={resetPassword}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -266,9 +386,10 @@ function LoanRequestsForTeacher({ loanRequests = [] }) {
 
     if (loanRequests.length === 0) {
         return (
-            <Card className="mt-6">
-                <div className="p-5 border-b">
-                    <h2 className="text-lg font-medium text-text">Pengajuan Pengambilan HP</h2>
+            <Card className="mt-4">
+                <div className="border-b px-4 py-3 sm:px-5">
+                    <h2 className="text-sm font-semibold text-text">Pengajuan pengambilan HP</h2>
+                    <p className="mt-0.5 text-xs text-text-secondary">Persetujuan dan pengembalian</p>
                 </div>
                 <div className="p-8 empty-state">
                     <Smartphone className="empty-state-icon h-10 w-10" aria-hidden="true" />
@@ -279,16 +400,20 @@ function LoanRequestsForTeacher({ loanRequests = [] }) {
     }
 
     return (
-        <Card className="mt-6">
-            <div className="p-5 border-b">
-                <h2 className="text-lg font-medium text-text">Pengajuan Pengambilan HP</h2>
+        <Card className="mt-4">
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+                <div>
+                    <h2 className="text-sm font-semibold text-text">Pengajuan pengambilan HP</h2>
+                    <p className="mt-0.5 text-xs text-text-secondary">Persetujuan dan pengembalian</p>
+                </div>
+                <Badge variant="neutral">{loanRequests.length} pengajuan</Badge>
             </div>
             <div className="divide-y divide-border">
                 {loanRequests.map((request) => (
-                    <div key={request.id} className="p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
+                    <div key={request.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
+                        <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-text">{request.student_name}</p>
+                                <p className="text-sm font-medium text-text">{request.student_name}</p>
                                 <Badge variant={request.status === 'pending' ? 'warning' : request.status === 'acc' ? 'success' : 'danger'}>
                                     {requestStatus[request.status]}
                                 </Badge>
@@ -332,26 +457,46 @@ function LoanRequestsForTeacher({ loanRequests = [] }) {
 }
 
 function WaliKelasDashboard({ schoolClass, date, loanRequests }) {
+    const stats = useMemo(() => {
+        const students = schoolClass?.students ?? [];
+        const count = (s) => students.filter((st) => (st.collection_records?.[0]?.status ?? 'none') === s).length;
+        const collected = count('dikumpulkan');
+        const borrowed = count('sedang_dipinjam');
+        const missing = students.length - collected - borrowed;
+        const pending = (loanRequests ?? []).filter((r) => r.status === 'pending').length;
+        return { total: students.length, collected, borrowed, missing, pending };
+    }, [schoolClass, loanRequests]);
+
     return (
         <div>
             <Head title="Dashboard" />
-            <PageHeader role="wali_kelas" title={schoolClass?.name ?? 'Belum Ada Kelas'} subtitle={`Pendataan ${date}`} />
-            
+            <PageHeader title={schoolClass?.name ?? 'Belum Ada Kelas'} date={date} />
+
             {schoolClass ? (
                 <>
-                    <Card className="mb-6">
-                        <div className="p-5 border-b">
+                    <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        <StatCard icon={Users} label="Total siswa" value={stats.total} tone="primary" />
+                        <StatCard icon={Check} label="Dikumpulkan" value={stats.collected} tone="success" />
+                        <StatCard icon={Clock} label="Dipinjam / belum" value={`${stats.borrowed + stats.missing}`} hint={stats.pending ? `${stats.pending} menunggu persetujuan` : undefined} tone="warning" />
+                        <StatCard icon={Send} label="Menunggu ACC" value={stats.pending} tone={stats.pending > 0 ? 'danger' : 'neutral'} />
+                    </div>
+                    <Card className="mb-4">
+                        <div className="border-b px-4 py-3 sm:px-5">
                             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h2 className="text-lg font-medium text-text">Daftar Pengumpulan HP</h2>
-                                    <p className="mt-0.5 text-sm text-text-secondary">Klik status untuk mengubah keterangan siswa</p>
+                                    <h2 className="text-sm font-semibold text-text">Daftar pengumpulan HP</h2>
+                                    <p className="mt-0.5 text-xs text-text-secondary">Ubah status untuk memperbarui keterangan siswa</p>
                                 </div>
-                                <span className="text-sm text-text-muted">
+                                <span className="text-xs tabular-nums text-text-muted">
                                     {schoolClass.collected_students_count} / {schoolClass.students_count} dikumpulkan
                                 </span>
                             </div>
+                            <Progress
+                                value={schoolClass.students_count ? Math.round((schoolClass.collected_students_count / schoolClass.students_count) * 100) : 0}
+                                className="mt-3 h-1.5"
+                            />
                         </div>
-                        <div className="p-5">
+                        <div className="p-4 sm:p-5">
                             <CollectionList schoolClass={schoolClass} />
                         </div>
                     </Card>
@@ -525,7 +670,7 @@ function SiswaDashboard({ user, loanRequests }) {
     return (
         <div>
             <Head title="Dashboard" />
-            <PageHeader role="siswa" title={`Halo, ${user.name}`} subtitle="Ajukan dan pantau pengambilan HP Anda" />
+            <PageHeader title={`Halo, ${user.name}`} subtitle="Ajukan dan pantau pengambilan HP Anda" />
             <StudentLoanRequests loanRequests={loanRequests} />
         </div>
     );
@@ -533,7 +678,9 @@ function SiswaDashboard({ user, loanRequests }) {
 
 export default function Dashboard({ role, classes, schoolClass, date, loanRequests }) {
     const user = usePage().props.auth.user;
-    if (role === 'kesiswaan') return <KesiswaanDashboard classes={classes} date={date} />;
-    if (role === 'wali_kelas') return <WaliKelasDashboard schoolClass={schoolClass} date={date} loanRequests={loanRequests} />;
-    return <SiswaDashboard user={user} loanRequests={loanRequests} />;
+    let content;
+    if (role === 'kesiswaan') content = <KesiswaanDashboard classes={classes} date={date} />;
+    else if (role === 'wali_kelas') content = <WaliKelasDashboard schoolClass={schoolClass} date={date} loanRequests={loanRequests} />;
+    else content = <SiswaDashboard user={user} loanRequests={loanRequests} />;
+    return <AuthenticatedLayout>{content}</AuthenticatedLayout>;
 }

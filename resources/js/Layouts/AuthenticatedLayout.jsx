@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Link, usePage, Head } from '@inertiajs/react';
+import { Link, usePage, Head, router } from '@inertiajs/react';
 import { Sheet, SheetContent } from '@/Components/ui/sheet';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/Components/ui/avatar';
 import { Button } from '@/Components/ui/button';
 import { Separator } from '@/Components/ui/separator';
+import AppLogo from '@/Components/AppLogo';
 import { cn } from '@/lib/utils';
 import {
     LayoutDashboard,
@@ -17,7 +18,6 @@ import {
     Menu,
     X,
     ChevronDown,
-    Smartphone,
 } from 'lucide-react';
 
 const navigation = [
@@ -50,10 +50,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     <div className="flex h-full flex-col">
                         <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
                             <Link href="/dashboard" className="flex items-center gap-2" aria-label="RekapHP Home">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                                    <Smartphone className="h-5 w-5 text-white" />
-                                </div>
-                                <span className="font-semibold text-lg text-text">RekapHP</span>
+                                <AppLogo size="sm" />
                             </Link>
                             <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} aria-label="Tutup menu">
                                 <X className="h-5 w-5" />
@@ -101,16 +98,18 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <User className="h-5 w-5" aria-hidden="true" />
                                 Profil
                             </Link>
-                            <form action={route('logout')} method="POST" onSubmit={() => setMobileMenuOpen(false)}>
-                                <Button
-                                    type="submit"
-                                    variant="ghost"
-                                    className="w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text"
-                                >
-                                    <LogOut className="h-5 w-5" aria-hidden="true" />
-                                    Keluar
-                                </Button>
-                            </form>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text"
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    router.post(route('logout'));
+                                }}
+                            >
+                                <LogOut className="h-5 w-5" aria-hidden="true" />
+                                Keluar
+                            </Button>
                         </div>
                     </div>
                 </SheetContent>
@@ -119,10 +118,7 @@ export default function AuthenticatedLayout({ header, children }) {
             <aside className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-[260px] lg:flex-col lg:border-r lg:bg-white" aria-label="Sidebar">
                 <div className="flex h-16 shrink-0 items-center border-b px-4">
                     <Link href="/dashboard" className="flex items-center gap-2" aria-label="RekapHP Home">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <Smartphone className="h-5 w-5 text-white" />
-                        </div>
-                        <span className="font-semibold text-lg text-text">RekapHP</span>
+                        <AppLogo size="sm" />
                     </Link>
                 </div>
                 <div className="flex flex-1 flex-col overflow-y-auto">
@@ -167,16 +163,15 @@ export default function AuthenticatedLayout({ header, children }) {
                             <User className="h-5 w-5" aria-hidden="true" />
                             Profil
                         </Link>
-                        <form action={route('logout')} method="POST">
-                            <Button
-                                type="submit"
-                                variant="ghost"
-                                className="w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text"
-                            >
-                                <LogOut className="h-5 w-5" aria-hidden="true" />
-                                Keluar
-                            </Button>
-                        </form>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text"
+                            onClick={() => router.post(route('logout'))}
+                        >
+                            <LogOut className="h-5 w-5" aria-hidden="true" />
+                            Keluar
+                        </Button>
                     </div>
                 </div>
             </aside>
@@ -227,13 +222,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <form action={route('logout')} method="POST">
-                                    <button type="submit" className="flex w-full items-center gap-2 text-left text-sm">
-                                        <LogOut className="h-4 w-4" aria-hidden="true" />
-                                        Keluar
-                                    </button>
-                                </form>
+                            <DropdownMenuItem
+                                onSelect={() => router.post(route('logout'))}
+                                className="flex cursor-pointer items-center gap-2"
+                            >
+                                <LogOut className="h-4 w-4" aria-hidden="true" />
+                                Keluar
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

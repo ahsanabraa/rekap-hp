@@ -59,7 +59,7 @@ export default function UpdateProfileInformation({ mustVerifyEmail, status }) {
                             href={route('verification.send')}
                             method="post"
                             as="button"
-                            className="underline hover:text-warning/80"
+                            className="underline hover:text-[hsl(38_92%_45%)]"
                         >
                             {' '}Kirim ulang verifikasi.
                         </Link>
