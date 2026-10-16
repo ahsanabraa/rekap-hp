@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Link, usePage, Head, router } from '@inertiajs/react';
 import { Sheet, SheetContent } from '@/Components/ui/sheet';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/Components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/Components/ui/avatar';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/Components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/Components/ui/avatar';
+import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Separator } from '@/Components/ui/separator';
 import AppLogo from '@/Components/AppLogo';
@@ -176,55 +177,89 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
             </aside>
 
-            <div className="lg:pl-[260px]">
+            <div className="min-w-0 lg:pl-[260px]">
                 <header className={cn(
-                    'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 px-4 lg:px-6',
+                    'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-white/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:gap-4 sm:px-4 lg:px-6',
                     isScrolled && 'shadow-sm'
                 )}>
                     <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
-                        className="lg:hidden"
+                        className="h-9 w-9 shrink-0 lg:hidden"
                         onClick={() => setMobileMenuOpen(true)}
                         aria-label="Buka menu"
                     >
                         <Menu className="h-5 w-5" />
                     </Button>
-                    <div className="flex-1" />
+                    <div className="min-w-0 flex-1" />
                     <div className="hidden sm:flex items-center gap-2 text-xs text-text-muted">
                         {isKesiswaan && 'Kesiswaan'}
                         {isWaliKelas && 'Wali Kelas'}
                         {isSiswa && 'Siswa'}
                     </div>
                     
-                    {/* Profile Menu - Desktop */}
+                    {/* Profile Menu */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarFallback className="text-sm font-medium">
+                            <Button type="button" variant="ghost" className="flex max-w-full items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text sm:gap-2 sm:px-3">
+                                <Avatar className="h-7 w-7 shrink-0 sm:h-8 sm:w-8">
+                                    <AvatarFallback className="text-xs font-medium sm:text-sm">
                                         {user.name.charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
-                                <span className="hidden md:inline-block truncate max-w-[140px]">{user.name}</span>
-                                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                                <span className="hidden max-w-[120px] truncate md:inline-block lg:max-w-[140px]">{user.name}</span>
+                                <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                            <div className="px-3 py-2 border-b">
-                                <p className="text-sm font-medium text-text">{user.name}</p>
-                                <p className="text-xs text-text-muted truncate">@{user.username}</p>
-                            </div>
+                        <DropdownMenuContent align="end" sideOffset={8} className="w-60">
+                            <DropdownMenuLabel className="font-normal">
+                                <div className="flex flex-col gap-1">
+                                    <p className="truncate text-sm font-medium text-text">{user.name}</p>
+                                    <p className="truncate text-xs text-text-muted">@{user.username}</p>
+                                    <div className="mt-1">
+                                        <Badge variant={isKesiswaan ? 'primary' : isWaliKelas ? 'success' : 'warning'}>
+                                            {isKesiswaan ? 'Kesiswaan' : isWaliKelas ? 'Wali Kelas' : 'Siswa'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem asChild>
-                                <Link href={route('profile.edit')} className="flex items-center gap-2">
+                                <Link href="/dashboard" className="flex cursor-pointer items-center gap-2">
+                                    <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                                    Dashboard
+                                </Link>
+                            </DropdownMenuItem>
+                            {isKesiswaan && (
+                                <>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/classes" className="flex cursor-pointer items-center gap-2">
+                                            <BookOpen className="h-4 w-4" aria-hidden="true" />
+                                            Kelas
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/students" className="flex cursor-pointer items-center gap-2">
+                                            <Users className="h-4 w-4" aria-hidden="true" />
+                                            Siswa
+                                        </Link>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                            <DropdownMenuItem asChild>
+                                <Link href={route('profile.edit')} className="flex cursor-pointer items-center gap-2">
                                     <User className="h-4 w-4" aria-hidden="true" />
                                     Profil
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                                onSelect={() => router.post(route('logout'))}
-                                className="flex cursor-pointer items-center gap-2"
+                                onSelect={(e) => {
+                                    e.preventDefault();
+                                    router.post(route('logout'));
+                                }}
+                                className="flex cursor-pointer items-center gap-2 text-danger focus:text-danger"
                             >
                                 <LogOut className="h-4 w-4" aria-hidden="true" />
                                 Keluar
@@ -234,20 +269,20 @@ export default function AuthenticatedLayout({ header, children }) {
                 </header>
 
                 {header && (
-                    <div className="border-b px-4 py-5 lg:px-6">
+                    <div className="border-b px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
                         {header}
                     </div>
                 )}
 
                 {flash.success && (
-                    <div className="mx-auto mt-4 max-w-7xl px-4 lg:px-6">
-                        <div className="rounded-lg border border-success-light bg-success-light px-4 py-3 text-sm font-medium text-success">
+                    <div className="mx-auto mt-3 max-w-7xl px-3 sm:mt-4 sm:px-4 lg:px-6">
+                        <div className="break-words rounded-lg border border-success-light bg-success-light px-3 py-2.5 text-sm font-medium text-success sm:px-4 sm:py-3">
                             {flash.success}
                         </div>
                     </div>
                 )}
 
-                <main className="container-app py-5 lg:py-6">{children}</main>
+                <main className="container-app min-w-0 overflow-x-clip py-4 sm:py-5 lg:py-6">{children}</main>
             </div>
         </div>
     );

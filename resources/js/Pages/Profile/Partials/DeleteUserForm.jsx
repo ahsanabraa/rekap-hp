@@ -1,4 +1,5 @@
-import { useForm, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';

@@ -22,6 +22,7 @@ import {
     BookOpen,
     ChevronDown,
     RotateCcw,
+    KeyRound,
     Loader2,
     Calendar,
     Search,
@@ -66,14 +67,14 @@ const formatTime = (date) => new Date(date).toLocaleTimeString('id-ID', { hour: 
 
 function PageHeader({ title, subtitle, date }) {
     return (
-        <div className="mb-5">
+        <div className="mb-4 sm:mb-5">
             {(date || subtitle) && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
-                    <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                    {date ? formatDate(date) : subtitle}
+                <span className="inline-flex max-w-full items-center gap-1.5 truncate text-xs text-text-muted">
+                    <Calendar className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{date ? formatDate(date) : subtitle}</span>
                 </span>
             )}
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-text">{title}</h1>
+            <h1 className="mt-1.5 break-words text-xl font-semibold tracking-tight text-text sm:mt-2 sm:text-2xl">{title}</h1>
         </div>
     );
 }
@@ -87,15 +88,15 @@ function StatCard({ icon: Icon, label, value, hint, tone = 'primary' }) {
         neutral: 'bg-bg-tertiary text-text-secondary',
     };
     return (
-        <Card>
-            <div className="flex items-center gap-3 p-4">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}>
-                    <Icon className="h-5 w-5" aria-hidden="true" />
+        <Card className="min-w-0 overflow-hidden">
+            <div className="flex items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${tones[tone]}`}>
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
                 </div>
-                <div className="min-w-0">
-                    <p className="text-xs text-text-muted">{label}</p>
-                    <p className="truncate text-xl font-semibold tabular-nums tracking-tight text-text">{value}</p>
-                    {hint && <p className="truncate text-xs text-text-secondary">{hint}</p>}
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] text-text-muted sm:text-xs">{label}</p>
+                    <p className="truncate text-lg font-semibold tabular-nums tracking-tight text-text sm:text-xl">{value}</p>
+                    {hint && <p className="truncate text-[11px] text-text-secondary sm:text-xs">{hint}</p>}
                 </div>
             </div>
         </Card>
@@ -204,79 +205,95 @@ const StudentRow = memo(function StudentRow({ student, interactive, onStatusChan
     const ActiveIcon = activeOption?.icon;
 
     return (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-white p-3 transition-colors duration-150 hover:bg-bg-secondary sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="avatar avatar-md shrink-0" aria-hidden="true">
+        <div className="min-w-0 rounded-lg border border-border bg-white p-2.5 transition-colors duration-150 hover:bg-bg-secondary sm:flex sm:items-center sm:gap-4 sm:p-3 sm:px-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                <div className="avatar avatar-md h-8 w-8 shrink-0 text-xs sm:h-9 sm:w-9 sm:text-sm" aria-hidden="true">
                     {student.user.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-text">{student.user.name}</p>
-                    <p className="text-xs tabular-nums text-text-muted">{student.nis}</p>
+                    <p className="truncate text-xs tabular-nums text-text-muted">NIS {student.nis}</p>
                 </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
                 {interactive ? (
+                    <span className="shrink-0 sm:hidden">
+                        {activeOption && ActiveIcon ? (
+                            <Badge variant={activeOption.variant} className="px-2 py-0.5 text-[11px]">
+                                <ActiveIcon className="h-3 w-3" aria-hidden="true" />
+                                {activeOption.label}
+                            </Badge>
+                        ) : (
+                            <Badge variant="neutral" className="px-2 py-0.5 text-[11px]">Belum didata</Badge>
+                        )}
+                    </span>
+                ) : (
+                    <span className="shrink-0">
+                        {activeOption && ActiveIcon ? (
+                            <Badge variant={activeOption.variant}>
+                                <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                                {activeOption.label}
+                            </Badge>
+                        ) : (
+                            <Badge variant="neutral">Belum didata</Badge>
+                        )}
+                    </span>
+                )}
+            </div>
+            {interactive && (
+                <div className="mt-2.5 flex items-center gap-2 sm:mt-0 sm:w-[280px] sm:shrink-0 lg:w-[300px]">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
+                                type="button"
                                 variant="outline"
                                 size="sm"
                                 className={cn(
-                                    'min-w-[132px] justify-between gap-1.5 font-medium',
+                                    'h-9 min-w-0 flex-1 justify-between gap-1.5 px-2.5 text-xs font-medium sm:text-sm',
                                     activeOption
                                         ? statusStyles[activeOption.variant].button
                                         : 'border-border bg-white text-text-secondary'
                                 )}
                             >
-                                <span className="inline-flex items-center gap-1.5">
+                                <span className="inline-flex min-w-0 items-center gap-1.5 truncate">
                                     {activeOption && ActiveIcon ? (
                                         <>
-                                            <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                                            {activeOption.label}
+                                            <ActiveIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                            <span className="truncate">{activeOption.label}</span>
                                         </>
                                     ) : (
                                         'Pilih status'
                                     )}
                                 </span>
-                                <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
+                                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" sideOffset={4} className="w-[180px]">
                             {statusOptions.map(({ value, label, icon: Icon, variant }) => (
                                 <DropdownMenuItem
                                     key={value}
-                                    className={cn('flex items-center gap-2', currentStatus === value && 'bg-bg-secondary font-medium')}
-                                    onClick={() => onStatusChange(student.id, value)}
+                                    className={cn('flex cursor-pointer items-center gap-2', currentStatus === value && 'bg-bg-secondary font-medium')}
+                                    onSelect={() => onStatusChange(student.id, value)}
                                 >
-                                    <Icon className={cn('h-4 w-4', statusStyles[variant].icon)} aria-hidden="true" />
+                                    <Icon className={cn('h-4 w-4 shrink-0', statusStyles[variant].icon)} aria-hidden="true" />
                                     {label}
                                 </DropdownMenuItem>
                             ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
-                ) : (
-                    activeOption && ActiveIcon ? (
-                        <Badge variant={activeOption.variant}>
-                            <ActiveIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                            {activeOption.label}
-                        </Badge>
-                    ) : (
-                        <Badge variant="neutral">Belum didata</Badge>
-                    )
-                )}
-                {interactive && (
                     <Button
-                        variant="ghost"
-                        size="icon"
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => onResetPassword(student)}
-                        className="h-9 w-9 text-text-muted hover:text-text"
-                        aria-label={`Reset password ${student.user.name}`}
-                        title="Reset password ke default"
+                        className="h-9 shrink-0 gap-1.5 border-dashed px-2.5 text-xs font-medium text-text-secondary hover:border-border-strong hover:text-text"
+                        aria-label={`Reset password ${student.user.name} ke default`}
+                        title={`Reset password ${student.user.name} ke "password"`}
                     >
-                        <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                        <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span className="hidden min-[380px]:inline">Reset PW</span>
+                        <span className="sr-only">Reset password</span>
                     </Button>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 });
@@ -291,7 +308,7 @@ function CollectionList({ schoolClass, interactive = true }) {
     }
 
     function resetPassword(student) {
-        if (window.confirm(`Reset password ${student.user.name} ke "password"?`)) {
+        if (window.confirm(`Reset password milik ${student.user.name} (NIS ${student.nis}) ke "password"?`)) {
             router.post(route('students.reset-password', student.id), {}, { preserveScroll: true });
         }
     }
@@ -317,19 +334,19 @@ function CollectionList({ schoolClass, interactive = true }) {
     }
 
     return (
-        <div>
-            <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className="min-w-0">
+            <div className="mb-3 flex flex-col gap-2.5 sm:gap-3 lg:flex-row lg:items-center">
                 <div className="relative min-w-0 flex-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                     <Input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Cari nama atau NIS…"
-                        className="pl-9"
+                        className="h-10 pl-9 text-sm"
                         aria-label="Cari siswa"
                     />
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter status">
+                <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-thin sm:flex-wrap sm:overflow-visible sm:pb-0" role="group" aria-label="Filter status">
                     {[{ v: 'all', l: 'Semua' }, ...statusOptions.map((s) => ({ v: s.value, l: s.label }))].map((o) => (
                         <button
                             key={o.v}
@@ -337,7 +354,7 @@ function CollectionList({ schoolClass, interactive = true }) {
                             onClick={() => setFilter(o.v)}
                             aria-pressed={filter === o.v}
                             className={cn(
-                                'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                                'shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 sm:px-3 sm:text-xs',
                                 filter === o.v
                                     ? 'border-transparent bg-text text-white'
                                     : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text'
@@ -386,12 +403,12 @@ function LoanRequestsForTeacher({ loanRequests = [] }) {
 
     if (loanRequests.length === 0) {
         return (
-            <Card className="mt-4">
-                <div className="border-b px-4 py-3 sm:px-5">
+            <Card className="mt-4 min-w-0 overflow-hidden">
+                <div className="border-b px-3 py-3 sm:px-5">
                     <h2 className="text-sm font-semibold text-text">Pengajuan pengambilan HP</h2>
                     <p className="mt-0.5 text-xs text-text-secondary">Persetujuan dan pengembalian</p>
                 </div>
-                <div className="p-8 empty-state">
+                <div className="empty-state p-6 sm:p-8">
                     <Smartphone className="empty-state-icon h-10 w-10" aria-hidden="true" />
                     <p className="empty-state-title">Belum ada pengajuan hari ini</p>
                 </div>
@@ -400,26 +417,26 @@ function LoanRequestsForTeacher({ loanRequests = [] }) {
     }
 
     return (
-        <Card className="mt-4">
-            <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
-                <div>
-                    <h2 className="text-sm font-semibold text-text">Pengajuan pengambilan HP</h2>
+        <Card className="mt-4 min-w-0 overflow-hidden">
+            <div className="flex min-w-0 items-center justify-between gap-2 border-b px-3 py-3 sm:gap-3 sm:px-5">
+                <div className="min-w-0">
+                    <h2 className="truncate text-sm font-semibold text-text">Pengajuan pengambilan HP</h2>
                     <p className="mt-0.5 text-xs text-text-secondary">Persetujuan dan pengembalian</p>
                 </div>
-                <Badge variant="neutral">{loanRequests.length} pengajuan</Badge>
+                <Badge variant="neutral" className="shrink-0">{loanRequests.length} pengajuan</Badge>
             </div>
             <div className="divide-y divide-border">
                 {loanRequests.map((request) => (
-                    <div key={request.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5">
+                    <div key={request.id} className="flex min-w-0 flex-col gap-3 p-3 sm:p-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:px-5">
                         <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-medium text-text">{request.student_name}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <p className="min-w-0 truncate text-sm font-medium text-text">{request.student_name}</p>
                                 <Badge variant={request.status === 'pending' ? 'warning' : request.status === 'acc' ? 'success' : 'danger'}>
                                     {requestStatus[request.status]}
                                 </Badge>
                                 {request.is_late && <Badge variant="danger">Terlambat</Badge>}
                             </div>
-                            <p className="mt-2 text-sm text-text-secondary line-clamp-2">{request.reason}</p>
+                            <p className="mt-1.5 break-words text-sm text-text-secondary line-clamp-2">{request.reason}</p>
                             <p className="mt-1 text-xs text-text-muted">
                                 {formatDate(request.starts_at)} · {formatTime(request.starts_at)} - {formatTime(request.ends_at)}
                             </p>
@@ -429,22 +446,22 @@ function LoanRequestsForTeacher({ loanRequests = [] }) {
                                 </p>
                             )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end">
                             {request.can_review && (
                                 <>
-                                    <Button size="sm" variant="success" onClick={() => review(request.id, 'acc')}>
-                                        <Check className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                                    <Button type="button" size="sm" variant="success" className="w-full justify-center min-[400px]:w-auto sm:w-auto" onClick={() => review(request.id, 'acc')}>
+                                        <Check className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                                         Setujui
                                     </Button>
-                                    <Button size="sm" variant="danger" onClick={() => review(request.id, 'dec')}>
-                                        <X className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                                    <Button type="button" size="sm" variant="danger" className="w-full justify-center min-[400px]:w-auto sm:w-auto" onClick={() => review(request.id, 'dec')}>
+                                        <X className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                                         Tolak
                                     </Button>
                                 </>
                             )}
                             {request.can_return && (
-                                <Button size="sm" variant="secondary" onClick={() => returnPhone(request.id)}>
-                                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                                <Button type="button" size="sm" variant="secondary" className="w-full justify-center min-[400px]:col-span-2 sm:col-span-1 sm:w-auto" onClick={() => returnPhone(request.id)}>
+                                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                                     Kembalikan
                                 </Button>
                             )}
@@ -468,26 +485,26 @@ function WaliKelasDashboard({ schoolClass, date, loanRequests }) {
     }, [schoolClass, loanRequests]);
 
     return (
-        <div>
+        <div className="min-w-0">
             <Head title="Dashboard" />
             <PageHeader title={schoolClass?.name ?? 'Belum Ada Kelas'} date={date} />
 
             {schoolClass ? (
                 <>
-                    <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <div className="mb-3 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:mb-4 sm:gap-3 lg:grid-cols-4">
                         <StatCard icon={Users} label="Total siswa" value={stats.total} tone="primary" />
                         <StatCard icon={Check} label="Dikumpulkan" value={stats.collected} tone="success" />
                         <StatCard icon={Clock} label="Dipinjam / belum" value={`${stats.borrowed + stats.missing}`} hint={stats.pending ? `${stats.pending} menunggu persetujuan` : undefined} tone="warning" />
                         <StatCard icon={Send} label="Menunggu ACC" value={stats.pending} tone={stats.pending > 0 ? 'danger' : 'neutral'} />
                     </div>
-                    <Card className="mb-4">
-                        <div className="border-b px-4 py-3 sm:px-5">
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <h2 className="text-sm font-semibold text-text">Daftar pengumpulan HP</h2>
+                    <Card className="mb-4 min-w-0 overflow-hidden">
+                        <div className="border-b px-3 py-3 sm:px-5">
+                            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                                <div className="min-w-0">
+                                    <h2 className="truncate text-sm font-semibold text-text">Daftar pengumpulan HP</h2>
                                     <p className="mt-0.5 text-xs text-text-secondary">Ubah status untuk memperbarui keterangan siswa</p>
                                 </div>
-                                <span className="text-xs tabular-nums text-text-muted">
+                                <span className="shrink-0 text-xs tabular-nums text-text-muted">
                                     {schoolClass.collected_students_count} / {schoolClass.students_count} dikumpulkan
                                 </span>
                             </div>
@@ -496,7 +513,7 @@ function WaliKelasDashboard({ schoolClass, date, loanRequests }) {
                                 className="mt-3 h-1.5"
                             />
                         </div>
-                        <div className="p-4 sm:p-5">
+                        <div className="p-3 sm:p-4 lg:p-5">
                             <CollectionList schoolClass={schoolClass} />
                         </div>
                     </Card>
@@ -504,8 +521,8 @@ function WaliKelasDashboard({ schoolClass, date, loanRequests }) {
                 </>
             ) : (
                 <Card className="border-dashed">
-                    <div className="p-10 empty-state">
-                        <BookOpen className="empty-state-icon h-12 w-12" aria-hidden="true" />
+                    <div className="empty-state p-6 sm:p-10">
+                        <BookOpen className="empty-state-icon h-10 w-10 sm:h-12 sm:w-12" aria-hidden="true" />
                         <p className="empty-state-title">Kamu belum memiliki kelas</p>
                         <p className="empty-state-desc">Hubungi kesiswaan untuk mendapatkan akses ke kelas</p>
                     </div>
@@ -528,18 +545,18 @@ function StudentLoanRequests({ loanRequests = [] }) {
     }
 
     return (
-        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-            <Card>
-                <div className="p-5 border-b">
+        <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[360px_1fr]">
+            <Card className="min-w-0 overflow-hidden">
+                <div className="border-b p-4 sm:p-5">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-light">
                             <Smartphone className="h-5 w-5 text-primary" aria-hidden="true" />
                         </div>
-                        <h2 className="text-lg font-medium text-text">Ajukan Pengambilan HP</h2>
+                        <h2 className="truncate text-base font-medium text-text sm:text-lg">Ajukan Pengambilan HP</h2>
                     </div>
                     <p className="mt-2 text-sm text-text-secondary">Isi form berikut untuk mengajukan peminjaman HP</p>
                 </div>
-                <form onSubmit={submit} className="p-5 space-y-5">
+                <form onSubmit={submit} className="space-y-5 p-4 sm:p-5">
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">Alasan <span className="text-danger">*</span></Label>
                         <Textarea
@@ -554,7 +571,7 @@ function StudentLoanRequests({ loanRequests = [] }) {
                         <p id="reason-hint" className="text-xs text-text-muted">Jelaskan alasan peminjaman dengan jelas</p>
                         {errors.reason && <p className="error-text" role="alert">{errors.reason}</p>}
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2">
                         <div className="space-y-2">
                             <Label className="text-sm font-medium">Jam Mulai <span className="text-danger">*</span></Label>
                             <Input
@@ -598,21 +615,21 @@ function StudentLoanRequests({ loanRequests = [] }) {
                 </form>
             </Card>
 
-            <Card>
-                <div className="p-5 border-b">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning-light">
+            <Card className="min-w-0 overflow-hidden">
+                <div className="border-b p-4 sm:p-5">
+                    <div className="flex min-w-0 items-center justify-between gap-2 sm:gap-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warning-light">
                                 <Smartphone className="h-5 w-5 text-warning" aria-hidden="true" />
                             </div>
-                            <h2 className="text-lg font-medium text-text">Riwayat Pengajuan</h2>
+                            <h2 className="truncate text-base font-medium text-text sm:text-lg">Riwayat Pengajuan</h2>
                         </div>
-                        <span className="shrink-0 text-sm text-text-muted">{loanRequests.length} pengajuan</span>
+                        <span className="shrink-0 text-xs text-text-muted sm:text-sm">{loanRequests.length} pengajuan</span>
                     </div>
                 </div>
                 {loanRequests.length === 0 ? (
-                    <div className="p-10 empty-state">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-warning-light mb-3">
+                    <div className="empty-state p-6 sm:p-10">
+                        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-warning-light">
                             <Smartphone className="h-7 w-7 text-warning" aria-hidden="true" />
                         </div>
                         <p className="empty-state-title text-base">Belum ada riwayat pengajuan</p>
@@ -621,9 +638,9 @@ function StudentLoanRequests({ loanRequests = [] }) {
                 ) : (
                     <div className="divide-y divide-border">
                         {loanRequests.map((request) => (
-                            <div key={request.id} className="p-5 transition-colors hover:bg-bg-secondary">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <div key={request.id} className="min-w-0 p-4 transition-colors hover:bg-bg-secondary sm:p-5">
+                                <div className="min-w-0 flex-1">
+                                    <div className="mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
                                         <Badge
                                             variant={
                                                 request.status === 'pending' ? 'warning'
@@ -639,7 +656,7 @@ function StudentLoanRequests({ loanRequests = [] }) {
                                             </Badge>
                                         )}
                                     </div>
-                                    <p className="text-sm text-text-secondary line-clamp-2">{request.reason}</p>
+                                    <p className="break-words text-sm text-text-secondary line-clamp-2">{request.reason}</p>
                                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
                                         <span className="inline-flex items-center gap-1.5">
                                             <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />

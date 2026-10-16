@@ -10,42 +10,42 @@ export default function Edit({ mustVerifyEmail, status }) {
         <AuthenticatedLayout
             header={
                 <>
-                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary-light text-primary">
+                    <span className="inline-flex items-center rounded-full bg-primary-light px-2.5 py-0.5 text-xs font-medium text-primary">
                         Pengaturan
                     </span>
-                    <h1 className="mt-3 text-2xl font-semibold tracking-tight text-text">Profil</h1>
+                    <h1 className="mt-2 text-xl font-semibold tracking-tight text-text sm:mt-3 sm:text-2xl">Profil</h1>
                 </>
             }
         >
             <Head title="Profil" />
 
-            <div className="space-y-5 max-w-2xl">
-                <Card>
-                    <div className="p-5 border-b">
-                        <h2 className="text-lg font-medium text-text">Informasi Profil</h2>
+            <div className="w-full max-w-2xl space-y-4 sm:space-y-5">
+                <Card className="min-w-0 overflow-hidden">
+                    <div className="border-b p-4 sm:p-5">
+                        <h2 className="text-base font-medium text-text sm:text-lg">Informasi Profil</h2>
                         <p className="mt-0.5 text-sm text-text-secondary">Update informasi akun Anda.</p>
                     </div>
-                    <div className="p-5">
+                    <div className="p-4 sm:p-5">
                         <UpdateProfileInformationForm mustVerifyEmail={mustVerifyEmail} status={status} />
                     </div>
                 </Card>
 
-                <Card>
-                    <div className="p-5 border-b">
-                        <h2 className="text-lg font-medium text-text">Ubah Password</h2>
+                <Card className="min-w-0 overflow-hidden">
+                    <div className="border-b p-4 sm:p-5">
+                        <h2 className="text-base font-medium text-text sm:text-lg">Ubah Password</h2>
                         <p className="mt-0.5 text-sm text-text-secondary">Pastikan akun Anda menggunakan password yang aman.</p>
                     </div>
-                    <div className="p-5">
+                    <div className="p-4 sm:p-5">
                         <UpdatePasswordForm />
                     </div>
                 </Card>
 
-                <Card className="border-danger-light">
-                    <div className="p-5 border-b">
-                        <h2 className="text-lg font-medium text-text">Hapus Akun</h2>
+                <Card className="min-w-0 overflow-hidden border-danger-light">
+                    <div className="border-b p-4 sm:p-5">
+                        <h2 className="text-base font-medium text-text sm:text-lg">Hapus Akun</h2>
                         <p className="mt-0.5 text-sm text-text-secondary">Tindakan ini permanen dan tidak dapat dibatalkan.</p>
                     </div>
-                    <div className="p-5">
+                    <div className="p-4 sm:p-5">
                         <DeleteUserForm />
                     </div>
                 </Card>
