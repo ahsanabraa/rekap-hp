@@ -29,6 +29,7 @@ const navigation = [
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
+    const isClassLeader = usePage().props.isClassLeader ?? false;
     const flash = usePage().props.flash ?? {};
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -196,7 +197,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     <div className="hidden sm:flex items-center gap-2 text-xs text-text-muted">
                         {isKesiswaan && 'Kesiswaan'}
                         {isWaliKelas && 'Wali Kelas'}
-                        {isSiswa && 'Siswa'}
+                        {isSiswa && (isClassLeader ? 'Ketua Kelas' : 'Siswa')}
                     </div>
                     
                     {/* Profile Menu */}
@@ -219,7 +220,13 @@ export default function AuthenticatedLayout({ header, children }) {
                                     <p className="truncate text-xs text-text-muted">@{user.username}</p>
                                     <div className="mt-1">
                                         <Badge variant={isKesiswaan ? 'primary' : isWaliKelas ? 'success' : 'warning'}>
-                                            {isKesiswaan ? 'Kesiswaan' : isWaliKelas ? 'Wali Kelas' : 'Siswa'}
+                                            {isKesiswaan
+                                                ? 'Kesiswaan'
+                                                : isWaliKelas
+                                                  ? 'Wali Kelas'
+                                                  : isClassLeader
+                                                    ? 'Ketua Kelas'
+                                                    : 'Siswa'}
                                         </Badge>
                                     </div>
                                 </div>

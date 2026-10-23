@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ClassController;
+use App\Http\Controllers\ClassDepositController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\LoanRequestController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -23,21 +23,17 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
-Route::post('/collection-records/{student}/status', [DashboardController::class, 'updateCollectionStatus'])
-    ->middleware(['auth', 'role:wali_kelas'])
-    ->name('collection-records.status');
-
-Route::post('/loan-requests', [LoanRequestController::class, 'store'])
+Route::post('/class-deposits', [ClassDepositController::class, 'store'])
     ->middleware(['auth', 'role:siswa'])
-    ->name('loan-requests.store');
+    ->name('class-deposits.store');
 
-Route::patch('/loan-requests/{loanRequest}/review', [LoanRequestController::class, 'review'])
-    ->middleware(['auth', 'role:wali_kelas'])
-    ->name('loan-requests.review');
+Route::patch('/class-deposits/{classDeposit}/verify', [ClassDepositController::class, 'verify'])
+    ->middleware(['auth', 'role:kesiswaan'])
+    ->name('class-deposits.verify');
 
-Route::patch('/loan-requests/{loanRequest}/return', [LoanRequestController::class, 'returnPhone'])
-    ->middleware(['auth', 'role:wali_kelas'])
-    ->name('loan-requests.return');
+Route::patch('/class-deposits/{classDeposit}/release', [ClassDepositController::class, 'release'])
+    ->middleware(['auth', 'role:kesiswaan'])
+    ->name('class-deposits.release');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -52,6 +48,8 @@ Route::middleware(['auth', 'role:kesiswaan'])->group(function () {
 
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');
     Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+    Route::post('/students/{student}/class-leader', [StudentController::class, 'setClassLeader'])
+        ->name('students.class-leader');
 
     Route::post('/teachers/{user}/reset-password', [PasswordResetController::class, 'resetTeacher'])
         ->name('teachers.reset-password');

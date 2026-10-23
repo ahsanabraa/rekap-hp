@@ -15,7 +15,15 @@ class Student extends Model
         'user_id',
         'class_id',
         'nis',
+        'is_class_leader',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_class_leader' => 'boolean',
+        ];
+    }
 
     public function user(): BelongsTo
     {

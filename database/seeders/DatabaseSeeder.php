@@ -89,6 +89,7 @@ class DatabaseSeeder extends Seeder
                 [
                     'class_id' => $schoolClass->id,
                     'nis' => $nis,
+                    'is_class_leader' => $index === 0,
                 ],
             );
         }

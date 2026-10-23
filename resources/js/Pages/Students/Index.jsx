@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/Components/ui/table';
 import { Badge } from '@/Components/ui/badge';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/Components/ui/alert-dialog';
-import { Users, Plus, RotateCcw, Loader2 } from 'lucide-react';
+import { Users, Plus, RotateCcw, Loader2, Crown } from 'lucide-react';
 
 export default function Index({ students, classes }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -26,6 +26,21 @@ export default function Index({ students, classes }) {
         if (confirm(`Reset password ${student.user.name} ke "password"?`)) {
             router.post(route('students.reset-password', student.id), {}, { preserveScroll: true });
         }
+    }
+
+    function toggleClassLeader(student) {
+        if (
+            student.is_class_leader &&
+            !confirm(`Cabut status ketua kelas dari ${student.user.name}?`)
+        ) {
+            return;
+        }
+
+        router.post(
+            route('students.class-leader', student.id),
+            { is_class_leader: !student.is_class_leader },
+            { preserveScroll: true },
+        );
     }
 
     return (
@@ -49,7 +64,7 @@ export default function Index({ students, classes }) {
                         </div>
                         <form onSubmit={submit} className="p-5 space-y-5">
                             <div className="space-y-2">
-                                <Label>Nama Lengkap <span className="text-danger">*</span></Label>
+                                <Label>Nama Lengkap</Label>
                                 <Input
                                     value={data.name}
                                     onChange={(e) => setData('name', e.target.value)}
@@ -60,7 +75,7 @@ export default function Index({ students, classes }) {
                                 {errors.name && <p className="error-text" role="alert">{errors.name}</p>}
                             </div>
                             <div className="space-y-2">
-                                <Label>NIS <span className="text-danger">*</span></Label>
+                                <Label>NIS</Label>
                                 <Input
                                     value={data.nis}
                                     onChange={(e) => setData('nis', e.target.value)}
@@ -71,7 +86,7 @@ export default function Index({ students, classes }) {
                                 {errors.nis && <p className="error-text" role="alert">{errors.nis}</p>}
                             </div>
                             <div className="space-y-2">
-                                <Label>Kelas <span className="text-danger">*</span></Label>
+                                <Label>Kelas</Label>
                                 <Select
                                     value={data.class_id ? String(data.class_id) : ''}
                                     onValueChange={(value) => setData('class_id', value)}
@@ -130,6 +145,7 @@ export default function Index({ students, classes }) {
                                         <TableHead>Nama</TableHead>
                                         <TableHead>Kelas</TableHead>
                                         <TableHead>Username</TableHead>
+                                        <TableHead>Ketua Kelas</TableHead>
                                         <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -142,6 +158,34 @@ export default function Index({ students, classes }) {
                                                 <Badge variant="neutral">{student.school_class.name}</Badge>
                                             </TableCell>
                                             <TableCell><code className="bg-bg-tertiary px-2 py-0.5 rounded text-xs">{student.user.username}</code></TableCell>
+                                            <TableCell>
+                                                {student.is_class_leader ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Badge variant="success">
+                                                            <Crown className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                            Ketua
+                                                        </Badge>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => toggleClassLeader(student)}
+                                                            className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                        >
+                                                            Cabut
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => toggleClassLeader(student)}
+                                                        className="text-text-secondary hover:text-text"
+                                                    >
+                                                        <Crown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                                        Jadikan
+                                                    </Button>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <Button
                                                     variant="ghost"
@@ -157,7 +201,7 @@ export default function Index({ students, classes }) {
                                     ))}
                                     {students.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={5}>
+                                            <TableCell colSpan={6}>
                                                 <div className="empty-state py-8">
                                                     <Users className="empty-state-icon h-10 w-10" aria-hidden="true" />
                                                     <p className="empty-state-title">Belum ada siswa</p>

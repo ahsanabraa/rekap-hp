@@ -29,4 +29,9 @@ class SchoolClass extends Model
     {
         return $this->hasMany(Student::class, 'class_id');
     }
+
+    public function deposits(): HasMany
+    {
+        return $this->hasMany(ClassDeposit::class, 'class_id');
+    }
 }

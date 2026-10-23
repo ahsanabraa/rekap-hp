@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClassDeposit;
 use App\Models\CollectionRecord;
 use App\Models\SchoolClass;
-use Carbon\Carbon;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class DashboardController extends Controller
 {
@@ -18,137 +16,212 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user->role === 'kesiswaan') {
-            return Inertia::render('Dashboard', [
-                'role' => 'kesiswaan',
-                'classes' => SchoolClass::with('homeroom:id,name')
-                    ->with([
-                        'students.user:id,name',
-                        'students.collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
-                    ])
-                    ->withCount('students')
-                    ->withCount([
-                        'students as collected_students_count' => fn ($query) => $query->whereHas(
-                            'collectionRecords',
-                            fn ($records) => $records
-                                ->whereDate('collection_date', today())
-                                ->where('status', 'dikumpulkan'),
-                        ),
-                    ])
-                    ->orderBy('grade')
-                    ->orderBy('group_name')
-                    ->get(),
-                'date' => today()->toDateString(),
-            ]);
+            return $this->kesiswaanDashboard();
         }
 
         if ($user->role === 'wali_kelas') {
-            $schoolClass = $user->homeroomClass()->with([
+            return $this->waliKelasDashboard($user);
+        }
+
+        return $this->siswaDashboard($user);
+    }
+
+    private function kesiswaanDashboard(): Response
+    {
+        $classes = SchoolClass::query()
+            ->with([
+                'homeroom:id,name',
+                'students:id,user_id,class_id,nis,is_class_leader',
                 'students.user:id,name',
-                'students.collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
-            ])->first();
+                'students.collectionRecords' => fn ($query) => $query
+                    ->whereDate('collection_date', today())
+                    ->whereNotNull('class_deposit_id')
+                    ->latest('id'),
+                'deposits' => fn ($query) => $query
+                    ->whereDate('deposit_date', today())
+                    ->with(['reportedBy:id,name', 'verifiedBy:id,name', 'releasedBy:id,name']),
+            ])
+            ->withCount('students')
+            ->orderBy('grade')
+            ->orderBy('group_name')
+            ->get();
 
-            $loanRequests = $schoolClass
-                ? $schoolClass->students()->with('user:id,name')->whereHas('loanRequests')->with([
-                    'collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
-                    'loanRequests' => fn ($query) => $query->latest()->orderByDesc('id'),
-                ])->get()->flatMap(fn ($student) => $student->loanRequests->values()->map(function ($loanRequest, $index) use ($student) {
-                    $record = $student->collectionRecords
-                        ->where('loan_request_id', $loanRequest->id)
-                        ->first();
-                    $isLatestRequest = $index === 0;
-                    $returnedAt = $isLatestRequest ? $record?->returned_at : null;
+        $shortageCounts = $this->shortageCounts();
 
-                    $loanRequest->setAttribute('student_name', $student->user->name);
-                    $loanRequest->setAttribute('collection_status', $record?->status);
-                    $loanRequest->setAttribute('returned_at', $returnedAt);
-                    $loanRequest->setAttribute('can_return', $isLatestRequest
-                        && $loanRequest->status === 'acc'
-                        && $record?->status === 'sedang_dipinjam');
-                    $loanRequest->setAttribute('can_review', $isLatestRequest && $loanRequest->status === 'pending');
-                    $isReturnedLate = $returnedAt
-                        && $loanRequest->ends_at
-                        && $returnedAt->gt($loanRequest->ends_at);
-                    $isStillBorrowedLate = $record?->status === 'sedang_dipinjam'
-                        && $loanRequest->ends_at?->isPast();
+        $classes->each(function (SchoolClass $schoolClass) use ($shortageCounts): void {
+            $this->attachDeposit(
+                $schoolClass,
+                $schoolClass->deposits->first(),
+                $shortageCounts[$schoolClass->id] ?? 0,
+            );
+        });
 
-                    $loanRequest->setAttribute('is_late', $isLatestRequest
-                        && $loanRequest->status === 'acc'
-                        && ($isStillBorrowedLate || $isReturnedLate));
+        $deposits = $classes->pluck('deposit')->filter();
 
-                    return $loanRequest;
-                }))->sortByDesc('id')->values()
-                : collect();
+        return Inertia::render('Dashboard', [
+            'role' => 'kesiswaan',
+            'date' => today()->toDateString(),
+            'classes' => $classes,
+            'summary' => [
+                'total_classes' => $classes->count(),
+                'submitted_classes' => $deposits->count(),
+                'verified_classes' => $deposits->whereNotNull('verified_count')->count(),
+                'shortage_classes' => $deposits->filter(fn (ClassDeposit $deposit) => $deposit->hasShortage())->count(),
+                'flagged_classes' => $classes->where('needs_attention', true)->count(),
+                'total_students' => (int) $classes->sum('students_count'),
+                'reported_total' => (int) $deposits->sum('reported_count'),
+                'verified_total' => (int) $deposits->sum(fn (ClassDeposit $deposit) => $deposit->verified_count ?? 0),
+            ],
+            'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+            'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+        ]);
+    }
+
+    private function waliKelasDashboard($user): Response
+    {
+        $schoolClass = $user->homeroomClass()
+            ->with([
+                'students:id,user_id,class_id,nis,is_class_leader',
+                'students.user:id,name',
+                'students.collectionRecords' => fn ($query) => $query
+                    ->whereDate('collection_date', today())
+                    ->whereNotNull('class_deposit_id')
+                    ->latest('id'),
+                'deposits' => fn ($query) => $query
+                    ->whereDate('deposit_date', today())
+                    ->with(['reportedBy:id,name', 'verifiedBy:id,name', 'releasedBy:id,name']),
+            ])
+            ->withCount('students')
+            ->first();
+
+        if ($schoolClass) {
+            $this->attachDeposit(
+                $schoolClass,
+                $schoolClass->deposits->first(),
+                $this->shortageCountFor($schoolClass->id),
+            );
+        }
+
+        return Inertia::render('Dashboard', [
+            'role' => 'wali_kelas',
+            'date' => today()->toDateString(),
+            'schoolClass' => $schoolClass,
+            'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+            'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+        ]);
+    }
+
+    private function siswaDashboard($user): Response
+    {
+        $student = $user->student()->with('schoolClass:id,name')->first();
+
+        if (! $student) {
+            return Inertia::render('Dashboard', [
+                'role' => 'siswa',
+                'date' => today()->toDateString(),
+                'schoolClass' => null,
+                'deposit' => null,
+                'ownStatus' => null,
+                'student' => null,
+                'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+                'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+            ]);
+        }
+
+        $ownStatus = CollectionRecord::query()
+            ->where('student_id', $student->id)
+            ->whereDate('collection_date', today())
+            ->whereNotNull('class_deposit_id')
+            ->latest('id')
+            ->value('status');
+
+        $deposit = ClassDeposit::query()
+            ->where('class_id', $student->class_id)
+            ->whereDate('deposit_date', today())
+            ->with(['reportedBy:id,name', 'verifiedBy:id,name', 'releasedBy:id,name'])
+            ->first();
+
+        if ($student->is_class_leader) {
+            $schoolClass = SchoolClass::query()
+                ->with([
+                    'homeroom:id,name',
+                    'students:id,user_id,class_id,nis,is_class_leader',
+                    'students.user:id,name',
+                    'students.collectionRecords' => fn ($query) => $query
+                        ->whereDate('collection_date', today())
+                        ->whereNotNull('class_deposit_id')
+                        ->latest('id'),
+                ])
+                ->withCount('students')
+                ->find($student->class_id);
+
+            $this->attachDeposit(
+                $schoolClass,
+                $deposit,
+                $this->shortageCountFor($student->class_id),
+            );
 
             return Inertia::render('Dashboard', [
-                'role' => 'wali_kelas',
-                'schoolClass' => $schoolClass,
-                'loanRequests' => $loanRequests,
+                'role' => 'ketua_kelas',
                 'date' => today()->toDateString(),
-                'statuses' => CollectionRecord::STATUSES,
+                'schoolClass' => $schoolClass,
+                'ownStatus' => $ownStatus,
+                'student' => $student->only(['id', 'nis', 'is_class_leader']),
+                'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+                'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
             ]);
         }
 
         return Inertia::render('Dashboard', [
             'role' => 'siswa',
             'date' => today()->toDateString(),
-            'loanRequests' => $user->student?->loanRequests()->latest()->get() ?? collect(),
+            'schoolClass' => $student->schoolClass?->only(['id', 'name']),
+            'deposit' => $deposit,
+            'ownStatus' => $ownStatus,
+            'student' => $student->only(['id', 'nis', 'is_class_leader']),
+            'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+            'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
         ]);
     }
 
-    public function updateCollectionStatus(Request $request, int $student): Response|RedirectResponse
+    private function attachDeposit(SchoolClass $schoolClass, ?ClassDeposit $deposit, int $shortages): void
     {
-        $validated = $request->validate([
-            'status' => ['required', 'in:'.implode(',', CollectionRecord::STATUSES)],
-        ]);
+        $schoolClass->setAttribute('deposit', $deposit);
+        $schoolClass->setAttribute('shortages_last_30_days', $shortages);
+        $schoolClass->setAttribute('needs_attention', $shortages >= ClassDeposit::ATTENTION_THRESHOLD);
+        $schoolClass->unsetRelation('deposits');
+    }
 
-        $schoolClass = $request->user()->homeroomClass()->firstOrFail();
-        $studentModel = $schoolClass->students()->findOrFail($student);
+    /**
+     * @return array<int, int>
+     */
+    private function shortageCounts(): array
+    {
+        return ClassDeposit::query()
+            ->where('deposit_date', '>=', $this->attentionWindowStart())
+            ->whereNotNull('verified_count')
+            ->whereColumn('verified_count', '<', 'reported_count')
+            ->selectRaw('class_id, COUNT(*) as aggregate')
+            ->groupBy('class_id')
+            ->pluck('aggregate', 'class_id')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+    }
 
-        CollectionRecord::updateOrCreate(
-            [
-                'student_id' => $studentModel->id,
-                'collection_date' => Carbon::today()->toDateString(),
-                'loan_request_id' => null,
-            ],
-            [
-                'status' => $validated['status'],
-                'collected_at' => $validated['status'] === 'dikumpulkan' ? now() : null,
-                'recorded_by' => $request->user()->id,
-            ],
-        );
+    private function shortageCountFor(int $classId): int
+    {
+        return ClassDeposit::query()
+            ->where('class_id', $classId)
+            ->where('deposit_date', '>=', $this->attentionWindowStart())
+            ->whereNotNull('verified_count')
+            ->whereColumn('verified_count', '<', 'reported_count')
+            ->count();
+    }
 
-        $freshClass = $request->user()->homeroomClass()->with([
-            'students.user:id,name',
-            'students.collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
-        ])->first();
-
-        $loanRequests = $freshClass
-            ? $freshClass->students()->with('user:id,name')->whereHas('loanRequests')->with([
-                'collectionRecords' => fn ($query) => $query->whereDate('collection_date', today())->latest('id'),
-                'loanRequests' => fn ($query) => $query->latest()->orderByDesc('id'),
-            ])->get()->flatMap(fn ($student) => $student->loanRequests->values()->map(function ($loanRequest, $index) use ($student) {
-                $record = $student->collectionRecords->where('loan_request_id', $loanRequest->id)->first();
-                $isLatestRequest = $index === 0;
-                $returnedAt = $isLatestRequest ? $record?->returned_at : null;
-
-                $loanRequest->setAttribute('student_name', $student->user->name);
-                $loanRequest->setAttribute('collection_status', $record?->status);
-                $loanRequest->setAttribute('returned_at', $returnedAt);
-                $loanRequest->setAttribute('can_return', $isLatestRequest && $loanRequest->status === 'acc' && $record?->status === 'sedang_dipinjam');
-                $loanRequest->setAttribute('can_review', $isLatestRequest && $loanRequest->status === 'pending');
-                $isReturnedLate = $returnedAt && $loanRequest->ends_at && $returnedAt->gt($loanRequest->ends_at);
-                $isStillBorrowedLate = $record?->status === 'sedang_dipinjam' && $loanRequest->ends_at?->isPast();
-                $loanRequest->setAttribute('is_late', $isLatestRequest && $loanRequest->status === 'acc' && ($isStillBorrowedLate || $isReturnedLate));
-
-                return $loanRequest;
-            }))->sortByDesc('id')->values()
-            : collect();
-
-        return Inertia::render('Dashboard', [
-            'role' => 'wali_kelas',
-            'schoolClass' => $freshClass,
-            'loanRequests' => $loanRequests,
-            'date' => today()->toDateString(),
-        ]);
+    private function attentionWindowStart(): string
+    {
+        return today()
+            ->subDays(ClassDeposit::ATTENTION_WINDOW_DAYS - 1)
+            ->toDateString();
     }
 }

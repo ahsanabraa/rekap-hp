@@ -51,4 +51,27 @@ class StudentController extends Controller
 
         return back()->with('success', 'Siswa berhasil ditambahkan. Password awal: password.');
     }
+
+    public function setClassLeader(Request $request, Student $student): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_class_leader' => ['required', 'boolean'],
+        ]);
+
+        DB::transaction(function () use ($student, $validated): void {
+            if ($validated['is_class_leader']) {
+                Student::query()
+                    ->where('class_id', $student->class_id)
+                    ->update(['is_class_leader' => false]);
+            }
+
+            $student->update(['is_class_leader' => (bool) $validated['is_class_leader']]);
+        });
+
+        $message = $validated['is_class_leader']
+            ? $student->user->name.' sekarang menjadi ketua kelas.'
+            : 'Status ketua kelas '.$student->user->name.' dicabut.';
+
+        return back()->with('success', $message);
+    }
 }

@@ -49,7 +49,7 @@ export default function Index({ classes, teachers }) {
                         </div>
                         <form onSubmit={submit} className="p-5 space-y-5">
                             <div className="space-y-2">
-                                <Label>Nama Kelas <span className="text-danger">*</span></Label>
+                                <Label>Nama Kelas</Label>
                                 <Input
                                     value={data.name}
                                     onChange={(e) => setData('name', e.target.value)}
@@ -61,7 +61,7 @@ export default function Index({ classes, teachers }) {
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Tingkat <span className="text-danger">*</span></Label>
+                                    <Label>Tingkat</Label>
                                     <Input
                                         value={data.grade}
                                         onChange={(e) => setData('grade', e.target.value)}
@@ -72,7 +72,7 @@ export default function Index({ classes, teachers }) {
                                     {errors.grade && <p className="error-text" role="alert">{errors.grade}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Rombel <span className="text-danger">*</span></Label>
+                                    <Label>Rombel</Label>
                                     <Input
                                         value={data.group_name}
                                         onChange={(e) => setData('group_name', e.target.value)}

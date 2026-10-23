@@ -34,6 +34,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'isClassLeader' => fn () => $request->user()?->role === 'siswa'
+                && (bool) $request->user()?->student?->is_class_leader,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
             ],

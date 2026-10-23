@@ -20,6 +20,7 @@ class CollectionRecord extends Model
     protected $fillable = [
         'student_id',
         'loan_request_id',
+        'class_deposit_id',
         'collection_date',
         'status',
         'collected_at',
@@ -45,6 +46,11 @@ class CollectionRecord extends Model
     public function loanRequest(): BelongsTo
     {
         return $this->belongsTo(LoanRequest::class);
+    }
+
+    public function classDeposit(): BelongsTo
+    {
+        return $this->belongsTo(ClassDeposit::class);
     }
 
     public function recorder(): BelongsTo
