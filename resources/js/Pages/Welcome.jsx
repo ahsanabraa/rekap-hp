@@ -22,7 +22,7 @@ export default function Welcome({ auth }) {
     if (auth.user) {
         return (
             <>
-                <Head title="RekapHP" />
+                <Head title="Beranda" />
                 <main className="flex min-h-screen items-center justify-center bg-bg-secondary px-4 py-8">
                     <Card className="w-full max-w-md">
                         <div className="p-6 text-center">
@@ -48,7 +48,7 @@ export default function Welcome({ auth }) {
 
     return (
         <>
-            <Head title="RekapHP" />
+            <Head title="Login" />
             <main className="min-h-screen bg-bg-secondary px-4 py-8">
                 <div className="mx-auto max-w-md">
                     <div className="mb-8 flex justify-center">
