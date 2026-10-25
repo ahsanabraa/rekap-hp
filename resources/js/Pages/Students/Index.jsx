@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/Components/ui/table';
 import { Badge } from '@/Components/ui/badge';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/Components/ui/alert-dialog';
-import { Users, Plus, RotateCcw, Loader2, Crown } from 'lucide-react';
+import { Users, Plus, RotateCcw, Loader2, Crown, ClipboardList } from 'lucide-react';
 
 export default function Index({ students, classes }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -39,6 +39,21 @@ export default function Index({ students, classes }) {
         router.post(
             route('students.class-leader', student.id),
             { is_class_leader: !student.is_class_leader },
+            { preserveScroll: true },
+        );
+    }
+
+    function toggleClassSecretary(student) {
+        if (
+            student.is_class_secretary &&
+            !confirm(`Cabut status sekretaris kelas dari ${student.user.name}?`)
+        ) {
+            return;
+        }
+
+        router.post(
+            route('students.class-secretary', student.id),
+            { is_class_secretary: !student.is_class_secretary },
             { preserveScroll: true },
         );
     }
@@ -145,7 +160,7 @@ export default function Index({ students, classes }) {
                                         <TableHead>Nama</TableHead>
                                         <TableHead>Kelas</TableHead>
                                         <TableHead>Username</TableHead>
-                                        <TableHead>Ketua Kelas</TableHead>
+                                        <TableHead>Peran Kelas</TableHead>
                                         <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -159,32 +174,73 @@ export default function Index({ students, classes }) {
                                             </TableCell>
                                             <TableCell><code className="bg-bg-tertiary px-2 py-0.5 rounded text-xs">{student.user.username}</code></TableCell>
                                             <TableCell>
-                                                {student.is_class_leader ? (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Badge variant="success">
-                                                            <Crown className="mr-1 h-3 w-3" aria-hidden="true" />
-                                                            Ketua
-                                                        </Badge>
+                                                <div className="flex flex-col items-start gap-1.5">
+                                                    {student.is_class_leader ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Badge variant="success">
+                                                                <Crown className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                                Ketua
+                                                            </Badge>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => toggleClassLeader(student)}
+                                                                className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                            >
+                                                                Cabut
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => toggleClassLeader(student)}
-                                                            className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                            disabled={student.is_class_secretary}
+                                                            title={
+                                                                student.is_class_secretary
+                                                                    ? 'Siswa ini sudah menjadi sekretaris kelas'
+                                                                    : undefined
+                                                            }
+                                                            className="text-text-secondary hover:text-text"
                                                         >
-                                                            Cabut
+                                                            <Crown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                                            Jadikan Ketua
                                                         </Button>
-                                                    </div>
-                                                ) : (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => toggleClassLeader(student)}
-                                                        className="text-text-secondary hover:text-text"
-                                                    >
-                                                        <Crown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                                        Jadikan
-                                                    </Button>
-                                                )}
+                                                    )}
+
+                                                    {student.is_class_secretary ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Badge variant="primary">
+                                                                <ClipboardList className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                                Sekretaris
+                                                            </Badge>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => toggleClassSecretary(student)}
+                                                                className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                            >
+                                                                Cabut
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => toggleClassSecretary(student)}
+                                                            disabled={student.is_class_leader}
+                                                            title={
+                                                                student.is_class_leader
+                                                                    ? 'Siswa ini sudah menjadi ketua kelas'
+                                                                    : undefined
+                                                            }
+                                                            className="text-text-secondary hover:text-text"
+                                                        >
+                                                            <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                                            Jadikan Sekretaris
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Button

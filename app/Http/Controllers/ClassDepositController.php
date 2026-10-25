@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AttendanceRecord;
+use App\Models\AttendanceReport;
 use App\Models\ClassDeposit;
 use App\Models\CollectionRecord;
 use Illuminate\Http\RedirectResponse;
@@ -40,6 +42,27 @@ class ClassDepositController extends Controller
             throw ValidationException::withMessages([
                 'entries' => 'Daftar siswa pada checklist tidak sesuai dengan data kelas. Muat ulang halaman lalu coba lagi.',
             ]);
+        }
+
+        $attendanceStatuses = $this->verifiedAttendanceStatuses($schoolClass->id);
+
+        if ($attendanceStatuses !== []) {
+            foreach ($entries as $entry) {
+                $studentId = (int) $entry['student_id'];
+                $attendanceStatus = $attendanceStatuses[$studentId] ?? null;
+
+                if ($attendanceStatus === AttendanceRecord::STATUS_ABSENT && $entry['status'] !== 'tidak_masuk') {
+                    throw ValidationException::withMessages([
+                        'entries' => 'Ada siswa yang sudah tercatat tidak masuk pada absensi terverifikasi. Muat ulang halaman lalu coba lagi.',
+                    ]);
+                }
+
+                if ($attendanceStatus === AttendanceRecord::STATUS_PRESENT && $entry['status'] === 'tidak_masuk') {
+                    throw ValidationException::withMessages([
+                        'entries' => 'Ada siswa yang tercatat masuk pada absensi terverifikasi sehingga tidak bisa ditandai tidak masuk.',
+                    ]);
+                }
+            }
         }
 
         $deposit = ClassDeposit::query()
@@ -124,20 +147,54 @@ class ClassDepositController extends Controller
         $validated = $request->validate([
             'verified_count' => ['required', 'integer', 'min:0', 'max:'.$classDeposit->students_count],
             'verification_notes' => ['nullable', 'string', 'max:1000'],
+            'entries' => ['nullable', 'array'],
+            'entries.*.student_id' => ['required_with:entries', 'integer'],
+            'entries.*.verification_note' => ['nullable', 'string', 'max:500'],
         ]);
+
+        $entries = collect($validated['entries'] ?? []);
+        $studentIds = $classDeposit->schoolClass
+            ->students()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $foreignIds = $entries
+            ->pluck('student_id')
+            ->map(fn ($id) => (int) $id)
+            ->diff($studentIds);
+
+        if ($foreignIds->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'entries' => 'Ada siswa yang bukan anggota kelas ini pada daftar keterangan.',
+            ]);
+        }
 
         $discrepancy = (int) $validated['verified_count'] - $classDeposit->reported_count;
 
-        $classDeposit->update([
-            'verified_count' => $validated['verified_count'],
-            'discrepancy' => $discrepancy,
-            'status' => $discrepancy === 0
-                ? ClassDeposit::STATUS_VERIFIED
-                : ClassDeposit::STATUS_DISCREPANCY,
-            'verified_by' => $request->user()->id,
-            'verified_at' => now(),
-            'verification_notes' => $validated['verification_notes'] ?? null,
-        ]);
+        DB::transaction(function () use ($classDeposit, $validated, $discrepancy, $entries, $request): void {
+            $classDeposit->update([
+                'verified_count' => $validated['verified_count'],
+                'discrepancy' => $discrepancy,
+                'status' => $discrepancy === 0
+                    ? ClassDeposit::STATUS_VERIFIED
+                    : ClassDeposit::STATUS_DISCREPANCY,
+                'verified_by' => $request->user()->id,
+                'verified_at' => now(),
+                'verification_notes' => $validated['verification_notes'] ?? null,
+            ]);
+
+            foreach ($entries as $entry) {
+                CollectionRecord::query()
+                    ->where('class_deposit_id', $classDeposit->id)
+                    ->where('student_id', (int) $entry['student_id'])
+                    ->update([
+                        'verification_note' => $entry['verification_note'] ?? null,
+                        'verified_note_by' => $request->user()->id,
+                        'verified_note_at' => now(),
+                    ]);
+            }
+        });
 
         $message = $discrepancy === 0
             ? 'Setoran terverifikasi. Jumlah HP sesuai dengan checklist.'
@@ -165,5 +222,26 @@ class ClassDepositController extends Controller
         ]);
 
         return back()->with('success', 'Box berhasil ditandai sudah diambil oleh ketua kelas.');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function verifiedAttendanceStatuses(int $classId): array
+    {
+        $report = AttendanceReport::query()
+            ->where('class_id', $classId)
+            ->whereDate('report_date', today())
+            ->where('status', AttendanceReport::STATUS_VERIFIED)
+            ->with('records:id,attendance_report_id,student_id,status')
+            ->first();
+
+        if (! $report) {
+            return [];
+        }
+
+        return $report->records
+            ->mapWithKeys(fn (AttendanceRecord $record) => [(int) $record->student_id => $record->status])
+            ->all();
     }
 }

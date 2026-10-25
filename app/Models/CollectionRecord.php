@@ -27,6 +27,9 @@ class CollectionRecord extends Model
         'returned_at',
         'recorded_by',
         'notes',
+        'verification_note',
+        'verified_note_by',
+        'verified_note_at',
     ];
 
     protected function casts(): array
@@ -35,6 +38,7 @@ class CollectionRecord extends Model
             'collection_date' => 'date',
             'collected_at' => 'datetime',
             'returned_at' => 'datetime',
+            'verified_note_at' => 'datetime',
         ];
     }
 
@@ -56,5 +60,10 @@ class CollectionRecord extends Model
     public function recorder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function verifiedNoteBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_note_by');
     }
 }

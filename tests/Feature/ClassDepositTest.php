@@ -260,6 +260,77 @@ class ClassDepositTest extends TestCase
         ]);
     }
 
+    public function test_kesiswaan_can_add_verification_notes_per_student(): void
+    {
+        [$schoolClass, $students, , $leaderUser] = $this->makeClass();
+        $kesiswaan = $this->makeKesiswaan();
+
+        $this->actingAs($leaderUser)->post(route('class-deposits.store'), [
+            'entries' => collect($students)->map(fn (Student $student) => [
+                'student_id' => $student->id,
+                'status' => 'dikumpulkan',
+            ])->all(),
+        ]);
+
+        $deposit = ClassDeposit::firstOrFail();
+
+        $this->actingAs($kesiswaan)->patch(route('class-deposits.verify', $deposit), [
+            'verified_count' => 3,
+            'verification_notes' => 'Catatan kelas.',
+            'entries' => [
+                ['student_id' => $students[0]->id, 'verification_note' => 'HP dititipkan ke teman.'],
+                ['student_id' => $students[1]->id, 'verification_note' => null],
+                ['student_id' => $students[2]->id, 'verification_note' => 'Sudah dikonfirmasi ke wali kelas.'],
+            ],
+        ])->assertRedirect();
+
+        $deposit->refresh();
+
+        $this->assertSame(ClassDeposit::STATUS_VERIFIED, $deposit->status);
+        $this->assertSame(3, $deposit->reported_count);
+        $this->assertSame(3, $deposit->verified_count);
+        $this->assertSame('Catatan kelas.', $deposit->verification_notes);
+
+        $records = CollectionRecord::where('class_deposit_id', $deposit->id)
+            ->get()
+            ->keyBy('student_id');
+
+        $this->assertSame('dikumpulkan', $records[$students[0]->id]->status);
+        $this->assertSame('HP dititipkan ke teman.', $records[$students[0]->id]->verification_note);
+        $this->assertSame($kesiswaan->id, $records[$students[0]->id]->verified_note_by);
+        $this->assertNotNull($records[$students[0]->id]->verified_note_at);
+        $this->assertNull($records[$students[1]->id]->verification_note);
+    }
+
+    public function test_kesiswaan_cannot_note_students_from_another_class(): void
+    {
+        [$schoolClass, $students, , $leaderUser] = $this->makeClass();
+        [, $otherStudents] = $this->makeClass(3, 'B');
+        $kesiswaan = $this->makeKesiswaan();
+
+        $this->actingAs($leaderUser)->post(route('class-deposits.store'), [
+            'entries' => collect($students)->map(fn (Student $student) => [
+                'student_id' => $student->id,
+                'status' => 'dikumpulkan',
+            ])->all(),
+        ]);
+
+        $deposit = ClassDeposit::where('class_id', $schoolClass->id)->firstOrFail();
+
+        $this->actingAs($kesiswaan)->patch(route('class-deposits.verify', $deposit), [
+            'verified_count' => 3,
+            'entries' => [
+                ['student_id' => $otherStudents[0]->id, 'verification_note' => 'Salah kelas.'],
+            ],
+        ])->assertSessionHasErrors('entries');
+
+        $this->assertNull($deposit->fresh()->verified_at);
+        $this->assertDatabaseMissing('collection_records', [
+            'student_id' => $otherStudents[0]->id,
+            'verification_note' => 'Salah kelas.',
+        ]);
+    }
+
     public function test_setting_class_leader_removes_previous_leader_in_same_class(): void
     {
         [$schoolClass, $students] = $this->makeClass();
@@ -349,7 +420,7 @@ class ClassDepositTest extends TestCase
     /**
      * @return array{0: SchoolClass, 1: array<int, Student>, 2: User, 3: User}
      */
-    private function makeClass(int $studentCount = 3): array
+    private function makeClass(int $studentCount = 3, string $group = 'A'): array
     {
         $teacher = User::factory()->create([
             'role' => 'wali_kelas',
@@ -357,9 +428,9 @@ class ClassDepositTest extends TestCase
         ]);
 
         $schoolClass = SchoolClass::create([
-            'name' => 'Kelas 10 A',
+            'name' => 'Kelas 10 '.$group,
             'grade' => '10',
-            'group_name' => 'A',
+            'group_name' => $group,
             'homeroom_user_id' => $teacher->id,
         ]);
 
@@ -375,7 +446,7 @@ class ClassDepositTest extends TestCase
             $students[] = Student::create([
                 'user_id' => $user->id,
                 'class_id' => $schoolClass->id,
-                'nis' => 'TEST'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+                'nis' => 'TEST'.$group.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'is_class_leader' => $index === 0,
             ]);
 

@@ -70,6 +70,44 @@ const studentStatusMeta = {
     sedang_dipinjam: { label: 'Dipinjam', variant: 'warning', icon: Clock },
 };
 
+const attendanceStatusMeta = {
+    masuk: { label: 'Masuk', variant: 'success', icon: Check },
+    tidak_masuk: { label: 'Tidak masuk', variant: 'neutral', icon: Info },
+};
+
+const attendanceStatusOptions = [
+    {
+        value: 'masuk',
+        label: 'Masuk',
+        icon: Check,
+        activeClass: 'border-success bg-success-light text-success',
+    },
+    {
+        value: 'tidak_masuk',
+        label: 'Tidak masuk',
+        icon: Info,
+        activeClass: 'border-border-strong bg-bg-tertiary text-text',
+    },
+];
+
+function attendanceMaps(students = [], attendance = null) {
+    const statuses = {};
+    const notes = {};
+
+    students.forEach((student) => {
+        statuses[student.id] = 'masuk';
+    });
+
+    (attendance?.records ?? []).forEach((record) => {
+        statuses[record.student_id] = record.status;
+        if (record.notes) {
+            notes[record.student_id] = record.notes;
+        }
+    });
+
+    return { statuses, notes };
+}
+
 const depositStatusMeta = {
     menunggu_verifikasi: { label: 'Menunggu verifikasi', variant: 'warning', icon: Clock },
     terverifikasi: { label: 'Terverifikasi', variant: 'success', icon: Check },
@@ -196,6 +234,197 @@ function StudentStatusBadge({ status }) {
     );
 }
 
+function AttendanceStatusBadge({ attendance }) {
+    if (!attendance) {
+        return <Badge variant="neutral">Absensi belum diisi</Badge>;
+    }
+
+    const meta =
+        attendance.status === 'terverifikasi'
+            ? { label: 'Absensi terverifikasi', variant: 'success', icon: Check }
+            : { label: 'Menunggu verifikasi absensi', variant: 'warning', icon: Clock };
+    const Icon = meta.icon;
+
+    return (
+        <Badge variant={meta.variant}>
+            <Icon className="mr-1 h-3 w-3" aria-hidden="true" />
+            {meta.label}
+        </Badge>
+    );
+}
+
+function AttendanceStudentList({
+    students = [],
+    statuses = {},
+    notes = {},
+    onToggle = null,
+    onNoteChange = null,
+    readOnly = false,
+}) {
+    const [query, setQuery] = useState('');
+
+    const filtered = useMemo(() => {
+        const keyword = query.trim().toLowerCase();
+        if (!keyword) return students;
+
+        return students.filter(
+            (student) =>
+                student.user?.name?.toLowerCase().includes(keyword) ||
+                String(student.nis).toLowerCase().includes(keyword),
+        );
+    }, [students, query]);
+
+    const absentCount = students.filter((student) => statuses[student.id] === 'tidak_masuk').length;
+
+    if (students.length === 0) {
+        return (
+            <div className="empty-state py-8">
+                <Users className="empty-state-icon h-10 w-10" aria-hidden="true" />
+                <p className="empty-state-title">Belum ada siswa</p>
+                <p className="empty-state-desc">Kelas ini belum memiliki siswa</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-w-0">
+            <div className="mb-3 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative min-w-0 flex-1 sm:max-w-sm">
+                    <Search
+                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                        aria-hidden="true"
+                    />
+                    <Input
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Cari nama atau NIS..."
+                        className="h-10 pl-9 text-sm"
+                        aria-label="Cari siswa"
+                    />
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="rounded-full bg-success-light px-2.5 py-1 font-medium text-success">
+                        {students.length - absentCount} masuk
+                    </span>
+                    <span className="rounded-full bg-bg-tertiary px-2.5 py-1 font-medium text-text-secondary">
+                        {absentCount} tidak masuk
+                    </span>
+                </div>
+            </div>
+
+            <p className="mb-2 text-xs tabular-nums text-text-muted" role="status">
+                Menampilkan {filtered.length} dari {students.length} siswa
+            </p>
+
+            {filtered.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border bg-bg-secondary px-4 py-8 text-center">
+                    <p className="text-sm font-medium text-text">Tidak ada hasil</p>
+                    <p className="mt-1 text-xs text-text-secondary">Coba kata kunci lain</p>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {filtered.map((student) => {
+                        const status = statuses[student.id] ?? 'masuk';
+                        const isAbsent = status === 'tidak_masuk';
+
+                        return (
+                            <div
+                                key={student.id}
+                                className="rounded-lg border border-border bg-white p-2.5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:p-3"
+                            >
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                    <div
+                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary sm:h-9 sm:w-9 sm:text-sm"
+                                        aria-hidden="true"
+                                    >
+                                        {student.user.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <p className="truncate text-sm font-medium text-text">
+                                                {student.user.name}
+                                            </p>
+                                            {student.is_class_leader && (
+                                                <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+                                                    <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
+                                                    Ketua
+                                                </Badge>
+                                            )}
+                                            {student.is_class_secretary && (
+                                                <Badge variant="primary" className="px-1.5 py-0 text-[10px]">
+                                                    Sekretaris
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <p className="truncate text-xs tabular-nums text-text-muted">
+                                            NIS {student.nis}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {readOnly ? (
+                                    <Badge variant={isAbsent ? 'neutral' : 'success'} className="mt-2 sm:mt-0">
+                                        {isAbsent ? (
+                                            <Info className="mr-1 h-3 w-3" aria-hidden="true" />
+                                        ) : (
+                                            <Check className="mr-1 h-3 w-3" aria-hidden="true" />
+                                        )}
+                                        {isAbsent ? 'Tidak masuk' : 'Masuk'}
+                                    </Badge>
+                                ) : (
+                                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:mt-0 sm:w-[200px] sm:shrink-0">
+                                        {attendanceStatusOptions.map((option) => {
+                                            const Icon = option.icon;
+                                            const active = status === option.value;
+
+                                            return (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => onToggle?.(student.id, option.value)}
+                                                    aria-pressed={active}
+                                                    className={cn(
+                                                        'flex items-center justify-center gap-1 rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                                                        active
+                                                            ? option.activeClass
+                                                            : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text',
+                                                    )}
+                                                >
+                                                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                    <span className="truncate">{option.label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {isAbsent &&
+                                    (readOnly
+                                        ? notes[student.id] && (
+                                              <p className="mt-2 w-full text-xs text-text-secondary sm:mt-0 sm:max-w-[200px]">
+                                                  Catatan: {notes[student.id]}
+                                              </p>
+                                          )
+                                        : (
+                                              <Input
+                                                  value={notes[student.id] ?? ''}
+                                                  onChange={(event) =>
+                                                      onNoteChange?.(student.id, event.target.value)
+                                                  }
+                                                  placeholder="Alasan, mis. izin/sakit"
+                                                  className="mt-2 h-8 w-full text-xs sm:mt-0 sm:max-w-[200px]"
+                                                  aria-label={`Catatan ketidakhadiran ${student.user.name}`}
+                                              />
+                                          ))}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function AttentionNotice({ schoolClass, flagWindowDays }) {
     if (!schoolClass?.needs_attention) return null;
 
@@ -272,8 +501,16 @@ function DepositInfo({ deposit }) {
     );
 }
 
-function StudentStatusList({ students = [] }) {
+function StudentStatusList({ students = [], attendance = null }) {
     const [query, setQuery] = useState('');
+
+    const attendanceStatuses = useMemo(
+        () =>
+            Object.fromEntries(
+                (attendance?.records ?? []).map((record) => [record.student_id, record.status]),
+            ),
+        [attendance],
+    );
 
     const filtered = useMemo(() => {
         const keyword = query.trim().toLowerCase();
@@ -381,10 +618,28 @@ function StudentStatusList({ students = [] }) {
                                             Ketua
                                         </Badge>
                                     )}
+                                    {student.is_class_secretary && (
+                                        <Badge variant="primary" className="px-1.5 py-0 text-[10px]">
+                                            Sekretaris
+                                        </Badge>
+                                    )}
                                 </div>
                                 <p className="truncate text-xs tabular-nums text-text-muted">NIS {student.nis}</p>
+                                {student.collection_records?.[0]?.verification_note && (
+                                    <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
+                                        Keterangan kesiswaan: {student.collection_records[0].verification_note}
+                                    </p>
+                                )}
                             </div>
-                            <StudentStatusBadge status={student.collection_records?.[0]?.status} />
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                {attendanceStatuses[student.id] === 'tidak_masuk' && (
+                                    <Badge variant="neutral">
+                                        <Info className="mr-1 h-3 w-3" aria-hidden="true" />
+                                        Tidak masuk
+                                    </Badge>
+                                )}
+                                <StudentStatusBadge status={student.collection_records?.[0]?.status} />
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -396,6 +651,9 @@ function StudentStatusList({ students = [] }) {
 function KesiswaanClassCard({ schoolClass, onVerify, onRelease, flagWindowDays }) {
     const deposit = schoolClass.deposit;
     const classLeader = schoolClass.students?.find((student) => student.is_class_leader);
+    const classSecretary = schoolClass.students?.find((student) => student.is_class_secretary);
+    const attendance = schoolClass.attendance;
+    const absentCount = attendance?.verified_absent_count ?? attendance?.absent_count ?? 0;
     const difference =
         deposit?.verified_count === null || deposit?.verified_count === undefined
             ? null
@@ -413,6 +671,20 @@ function KesiswaanClassCard({ schoolClass, onVerify, onRelease, flagWindowDays }
                         <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-muted">
                             <Crown className="h-3 w-3 shrink-0" aria-hidden="true" />
                             {classLeader?.user?.name ?? 'Ketua kelas belum ditunjuk'}
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-muted">
+                            <ClipboardList className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            {classSecretary?.user?.name ?? 'Sekretaris belum ditunjuk'}
+                        </p>
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-muted">
+                            <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            {attendance
+                                ? `${absentCount} tidak masuk · ${
+                                      attendance.status === 'terverifikasi'
+                                          ? 'absensi terverifikasi'
+                                          : 'menunggu verifikasi absensi'
+                                  }`
+                                : 'Absensi belum diisi'}
                         </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
@@ -491,8 +763,10 @@ function KesiswaanClassCard({ schoolClass, onVerify, onRelease, flagWindowDays }
 
 function VerifyDepositDialog({ target, onClose }) {
     const deposit = target?.deposit;
+    const students = useMemo(() => target?.students ?? [], [target]);
     const [verifiedCount, setVerifiedCount] = useState('');
     const [notes, setNotes] = useState('');
+    const [entryNotes, setEntryNotes] = useState({});
     const [processing, setProcessing] = useState(false);
 
     const open = Boolean(target && deposit);
@@ -500,17 +774,34 @@ function VerifyDepositDialog({ target, onClose }) {
     const parsedVerified = verifiedCount === '' ? null : Number(verifiedCount);
     const difference = parsedVerified === null ? null : parsedVerified - reported;
 
+    const attendanceStatuses = useMemo(
+        () =>
+            Object.fromEntries(
+                (target?.attendance?.records ?? []).map((record) => [record.student_id, record.status]),
+            ),
+        [target],
+    );
+
     useEffect(() => {
         if (!target || !deposit) return;
 
         setVerifiedCount(String(deposit.verified_count ?? deposit.reported_count));
         setNotes(deposit.verification_notes ?? '');
-    }, [target, deposit]);
+        setEntryNotes(
+            Object.fromEntries(
+                students.map((student) => [
+                    student.id,
+                    student.collection_records?.[0]?.verification_note ?? '',
+                ]),
+            ),
+        );
+    }, [target, deposit, students]);
 
     function handleOpenChange(nextOpen) {
         if (!nextOpen) {
             setVerifiedCount('');
             setNotes('');
+            setEntryNotes({});
             onClose();
         }
     }
@@ -525,6 +816,10 @@ function VerifyDepositDialog({ target, onClose }) {
             {
                 verified_count: Number(verifiedCount),
                 verification_notes: notes.trim() || null,
+                entries: students.map((student) => ({
+                    student_id: student.id,
+                    verification_note: (entryNotes[student.id] ?? '').trim() || null,
+                })),
             },
             {
                 preserveScroll: true,
@@ -536,11 +831,12 @@ function VerifyDepositDialog({ target, onClose }) {
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Verifikasi setoran {target?.name}</DialogTitle>
                     <DialogDescription>
-                        Masukkan jumlah fisik HP yang benar-benar ada di dalam box. Bandingkan dengan checklist ketua kelas.
+                        Masukkan jumlah fisik HP yang benar-benar ada di dalam box. Bandingkan dengan checklist ketua kelas
+                        dan absensi wali kelas.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -594,8 +890,70 @@ function VerifyDepositDialog({ target, onClose }) {
                         </div>
                     )}
 
+                    {students.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                                <Label>Keterangan per siswa (opsional)</Label>
+                                <span className="text-xs tabular-nums text-text-muted">{students.length} siswa</span>
+                            </div>
+                            <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-border p-2">
+                                {students.map((student) => {
+                                    const hpStatus = student.collection_records?.[0]?.status;
+                                    const attendanceStatus = attendanceStatuses[student.id];
+                                    const conflict =
+                                        hpStatus === 'dikumpulkan' && attendanceStatus === 'tidak_masuk';
+
+                                    return (
+                                        <div key={student.id} className="rounded-md bg-bg-secondary p-2">
+                                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                                <p className="truncate text-xs font-medium text-text">
+                                                    {student.user?.name}
+                                                </p>
+                                                <div className="flex flex-wrap items-center gap-1">
+                                                    <StudentStatusBadge status={hpStatus} />
+                                                    {attendanceStatus === 'tidak_masuk' && (
+                                                        <Badge variant="neutral">
+                                                            <Info className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                            Tidak masuk
+                                                        </Badge>
+                                                    )}
+                                                    {conflict && (
+                                                        <Badge variant="danger">
+                                                            <AlertTriangle
+                                                                className="mr-1 h-3 w-3"
+                                                                aria-hidden="true"
+                                                            />
+                                                            Perlu dicek
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <Input
+                                                value={entryNotes[student.id] ?? ''}
+                                                onChange={(event) =>
+                                                    setEntryNotes((current) => ({
+                                                        ...current,
+                                                        [student.id]: event.target.value,
+                                                    }))
+                                                }
+                                                placeholder={
+                                                    conflict
+                                                        ? 'Contoh: sudah dikonfirmasi, HP dititipkan ke teman.'
+                                                        : 'Keterangan (opsional)'
+                                                }
+                                                disabled={processing}
+                                                className="mt-1.5 h-8 text-xs"
+                                                aria-label={`Keterangan untuk ${student.user?.name}`}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-2">
-                        <Label htmlFor="verification-notes">Catatan (opsional)</Label>
+                        <Label htmlFor="verification-notes">Catatan kelas (opsional)</Label>
                         <Textarea
                             id="verification-notes"
                             value={notes}
@@ -654,7 +1012,7 @@ function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 
                     icon={Users}
                     label="Total siswa"
                     value={summary.total_students ?? 0}
-                    hint={`${summary.submitted_classes ?? 0}/${summary.total_classes ?? 0} kelas sudah setor`}
+                    hint={`${summary.absent_total ?? 0} tidak masuk · ${summary.attendance_verified_classes ?? 0}/${summary.total_classes ?? 0} absensi terverifikasi`}
                     tone="primary"
                 />
                 <StatCard
@@ -726,7 +1084,10 @@ function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 
                         {classes.map((schoolClass) => (
                             <TabsContent key={schoolClass.id} value={String(schoolClass.id)} className="mt-0 p-4 sm:p-5">
                                 <AttentionNotice schoolClass={schoolClass} flagWindowDays={flagWindowDays} />
-                                <StudentStatusList students={schoolClass.students} />
+                                <StudentStatusList
+                                    students={schoolClass.students}
+                                    attendance={schoolClass.attendance}
+                                />
                             </TabsContent>
                         ))}
                     </Tabs>
@@ -738,11 +1099,15 @@ function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 
     );
 }
 
-function buildInitialStatuses(students) {
+function buildInitialStatuses(students, attendanceStatuses = {}) {
     const allowed = new Set(studentStatusOptions.map((option) => option.value));
 
     return Object.fromEntries(
         students.map((student) => {
+            if (attendanceStatuses[student.id] === 'tidak_masuk') {
+                return [student.id, 'tidak_masuk'];
+            }
+
             const status = student.collection_records?.[0]?.status;
 
             return [student.id, allowed.has(status) ? status : 'belum'];
@@ -750,7 +1115,7 @@ function buildInitialStatuses(students) {
     );
 }
 
-function ChecklistForm({ schoolClass, flagWindowDays }) {
+function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
     const students = useMemo(
         () =>
             [...(schoolClass?.students ?? [])].sort((a, b) =>
@@ -761,8 +1126,16 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
     const deposit = schoolClass?.deposit;
     const isPending = deposit?.status === 'menunggu_verifikasi';
     const isLocked = Boolean(deposit && !isPending);
+    const verifiedAttendance = attendance?.status === 'terverifikasi' ? attendance : null;
+    const attendanceStatuses = useMemo(
+        () =>
+            Object.fromEntries(
+                (verifiedAttendance?.records ?? []).map((record) => [record.student_id, record.status]),
+            ),
+        [verifiedAttendance],
+    );
     const [editing, setEditing] = useState(!deposit);
-    const [statuses, setStatuses] = useState(() => buildInitialStatuses(students));
+    const [statuses, setStatuses] = useState(() => buildInitialStatuses(students, attendanceStatuses));
     const [query, setQuery] = useState('');
     const [processing, setProcessing] = useState(false);
     const errors = usePage().props.errors ?? {};
@@ -794,6 +1167,9 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
     }, [students, query]);
 
     function toggleStatus(studentId, status) {
+        if (attendanceStatuses[studentId] === 'tidak_masuk') return;
+        if (attendanceStatuses[studentId] === 'masuk' && status === 'tidak_masuk') return;
+
         setStatuses((current) => ({
             ...current,
             [studentId]: current[studentId] === status ? 'belum' : status,
@@ -847,7 +1223,9 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
                                 Checklist Setoran Pagi
                             </h2>
                             <p className="mt-1 text-xs text-text-secondary">
-                                Tap nama siswa saat HP diserahkan. Tandai yang tidak membawa HP atau tidak masuk.
+                                {verifiedAttendance
+                                    ? 'Absensi sudah diverifikasi wali kelas. Siswa yang tidak masuk terkunci otomatis.'
+                                    : 'Tap nama siswa saat HP diserahkan. Tandai yang tidak membawa HP atau tidak masuk.'}
                             </p>
                         </div>
                         <DepositStatusBadge deposit={deposit} />
@@ -874,6 +1252,13 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
                         </div>
                     )}
 
+                    {attendance && !verifiedAttendance && (
+                        <div className="flex items-start gap-2 rounded-lg bg-bg-secondary px-3 py-2.5 text-sm text-text-secondary">
+                            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                            Absensi masih menunggu verifikasi wali kelas. Status kehadiran masih bisa kamu ubah.
+                        </div>
+                    )}
+
                     {showForm && (
                         <>
                             <div className="relative">
@@ -897,6 +1282,7 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
                             <div className="space-y-2">
                                 {filtered.map((student) => {
                                     const activeStatus = statuses[student.id] ?? 'belum';
+                                    const attendanceStatus = attendanceStatuses[student.id];
 
                                     return (
                                         <div
@@ -929,28 +1315,45 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
                                             </div>
 
                                             <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-0 sm:w-[290px] sm:shrink-0">
-                                                {studentStatusOptions.map((option) => {
-                                                    const Icon = option.icon;
-                                                    const active = activeStatus === option.value;
+                                                {attendanceStatus === 'tidak_masuk' ? (
+                                                    <div className="col-span-3 flex items-center justify-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1.5 text-[11px] font-medium text-text">
+                                                        <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                        Tidak masuk (absensi)
+                                                    </div>
+                                                ) : (
+                                                    studentStatusOptions.map((option) => {
+                                                        const Icon = option.icon;
+                                                        const active = activeStatus === option.value;
+                                                        const disabled =
+                                                            attendanceStatus === 'masuk' &&
+                                                            option.value === 'tidak_masuk';
 
-                                                    return (
-                                                        <button
-                                                            key={option.value}
-                                                            type="button"
-                                                            onClick={() => toggleStatus(student.id, option.value)}
-                                                            aria-pressed={active}
-                                                            className={cn(
-                                                                'flex items-center justify-center gap-1 rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
-                                                                active
-                                                                    ? option.activeClass
-                                                                    : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text',
-                                                            )}
-                                                        >
-                                                            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                                            <span className="truncate">{option.label}</span>
-                                                        </button>
-                                                    );
-                                                })}
+                                                        return (
+                                                            <button
+                                                                key={option.value}
+                                                                type="button"
+                                                                onClick={() => toggleStatus(student.id, option.value)}
+                                                                aria-pressed={active}
+                                                                disabled={disabled}
+                                                                title={
+                                                                    disabled
+                                                                        ? 'Siswa tercatat masuk pada absensi terverifikasi'
+                                                                        : undefined
+                                                                }
+                                                                className={cn(
+                                                                    'flex items-center justify-center gap-1 rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                                                                    active
+                                                                        ? option.activeClass
+                                                                        : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text',
+                                                                    disabled && 'cursor-not-allowed opacity-40 hover:bg-white',
+                                                                )}
+                                                            >
+                                                                <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                                <span className="truncate">{option.label}</span>
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -973,7 +1376,7 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
                     )}
 
                     {!showForm && (
-                        <StudentStatusList students={students} />
+                        <StudentStatusList students={students} attendance={attendance} />
                     )}
                 </div>
 
@@ -1028,7 +1431,455 @@ function ChecklistForm({ schoolClass, flagWindowDays }) {
     );
 }
 
-function KetuaKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
+function AttendanceForm({ schoolClass, attendance, attendanceLocked = false }) {
+    const students = useMemo(
+        () =>
+            [...(schoolClass?.students ?? [])].sort((a, b) =>
+                String(a.nis).localeCompare(String(b.nis), undefined, { numeric: true }),
+            ),
+        [schoolClass],
+    );
+
+    const initial = useMemo(() => attendanceMaps(students, attendance), [students, attendance]);
+    const [statuses, setStatuses] = useState(() => initial.statuses);
+    const [notes, setNotes] = useState(() => initial.notes);
+    const [editing, setEditing] = useState(!attendance);
+    const [processing, setProcessing] = useState(false);
+    const errors = usePage().props.errors ?? {};
+
+    const isVerified = attendance?.status === 'terverifikasi';
+    const locked = attendanceLocked || isVerified;
+    const showForm = !locked && editing;
+    const absentCount = students.filter((student) => statuses[student.id] === 'tidak_masuk').length;
+
+    function updateStatus(studentId, status) {
+        setStatuses((current) => ({ ...current, [studentId]: status }));
+    }
+
+    function updateNote(studentId, value) {
+        setNotes((current) => ({ ...current, [studentId]: value }));
+    }
+
+    function submit(event) {
+        event.preventDefault();
+        if (processing) return;
+
+        setProcessing(true);
+        router.post(
+            route('attendance-reports.store'),
+            {
+                entries: students.map((student) => ({
+                    student_id: student.id,
+                    status: statuses[student.id] ?? 'masuk',
+                    notes: (notes[student.id] ?? '').trim() || null,
+                })),
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setProcessing(false),
+                onSuccess: () => setEditing(false),
+            },
+        );
+    }
+
+    if (students.length === 0) {
+        return (
+            <Card className="border-dashed">
+                <div className="empty-state p-6 sm:p-10">
+                    <Users className="empty-state-icon h-10 w-10" aria-hidden="true" />
+                    <p className="empty-state-title">Belum ada siswa</p>
+                    <p className="empty-state-desc">Hubungi kesiswaan untuk menambahkan siswa ke kelas ini</p>
+                </div>
+            </Card>
+        );
+    }
+
+    return (
+        <Card className="min-w-0 overflow-hidden">
+            <div className="border-b bg-white px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-sm font-semibold text-text">
+                            <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
+                            Absensi Pagi
+                        </h2>
+                        <p className="mt-1 text-xs text-text-secondary">
+                            Semua siswa dianggap masuk. Tandai siswa yang tidak masuk, lalu kirim ke wali kelas.
+                        </p>
+                    </div>
+                    <AttendanceStatusBadge attendance={attendance} />
+                </div>
+            </div>
+
+            <div className="space-y-3 p-4 sm:p-5">
+                {attendance?.verification_notes && (
+                    <div className="rounded-lg bg-bg-secondary px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
+                        Catatan wali kelas: {attendance.verification_notes}
+                    </div>
+                )}
+
+                {locked && (
+                    <div className="flex items-start gap-2 rounded-lg bg-bg-secondary px-3 py-2.5 text-sm text-text-secondary">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                        {isVerified
+                            ? 'Absensi sudah diverifikasi wali kelas dan tidak dapat diubah.'
+                            : 'Box kelas hari ini sudah diambil sehingga absensi tidak dapat diubah.'}
+                    </div>
+                )}
+
+                {!locked && attendance && !editing && (
+                    <div className="flex flex-col gap-2 rounded-lg bg-warning-light px-3 py-2.5 text-sm text-warning sm:flex-row sm:items-center sm:justify-between">
+                        <span>Absensi sudah dikirim dan sedang menunggu verifikasi wali kelas.</span>
+                        <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+                            Ubah absensi
+                        </Button>
+                    </div>
+                )}
+
+                {showForm ? (
+                    <form onSubmit={submit} className="space-y-3">
+                        <AttendanceStudentList
+                            students={students}
+                            statuses={statuses}
+                            notes={notes}
+                            onToggle={updateStatus}
+                            onNoteChange={updateNote}
+                        />
+
+                        {errors.entries && (
+                            <p className="error-text" role="alert">
+                                {errors.entries}
+                            </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className="rounded-full bg-success-light px-2.5 py-1 font-medium text-success">
+                                {students.length - absentCount} masuk
+                            </span>
+                            <span className="rounded-full bg-bg-tertiary px-2.5 py-1 font-medium text-text-secondary">
+                                {absentCount} tidak masuk
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-text-muted">
+                                {absentCount > 0
+                                    ? `${absentCount} siswa akan dilaporkan tidak masuk.`
+                                    : 'Semua siswa dilaporkan masuk.'}
+                            </p>
+                            <Button type="submit" disabled={processing} className="w-full justify-center gap-2 sm:w-auto">
+                                {processing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                        Mengirim...
+                                    </>
+                                ) : (
+                                    <>
+                                        <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+                                        Kirim absensi
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </form>
+                ) : (
+                    attendance && (
+                        <AttendanceStudentList
+                            students={students}
+                            statuses={initial.statuses}
+                            notes={initial.notes}
+                            readOnly
+                        />
+                    )
+                )}
+
+                {!attendance && locked && (
+                    <p className="text-sm text-text-secondary">Absensi hari ini tidak diisi oleh sekretaris.</p>
+                )}
+            </div>
+        </Card>
+    );
+}
+
+function AttendanceDialog({ open, onOpenChange, schoolClass, attendance, students, mode }) {
+    const [statuses, setStatuses] = useState({});
+    const [notes, setNotes] = useState({});
+    const [classNote, setClassNote] = useState('');
+    const [processing, setProcessing] = useState(false);
+    const errors = usePage().props.errors ?? {};
+
+    useEffect(() => {
+        if (!open) return;
+
+        const maps = attendanceMaps(students, attendance);
+        setStatuses(maps.statuses);
+        setNotes(maps.notes);
+        setClassNote(attendance?.verification_notes ?? '');
+    }, [open, attendance, students]);
+
+    function handleOpenChange(nextOpen) {
+        if (!nextOpen) {
+            setStatuses({});
+            setNotes({});
+            setClassNote('');
+            onOpenChange(false);
+        }
+    }
+
+    function submit(event) {
+        event.preventDefault();
+        if (processing) return;
+
+        setProcessing(true);
+
+        const payload = {
+            entries: students.map((student) => ({
+                student_id: student.id,
+                status: statuses[student.id] ?? 'masuk',
+                notes: (notes[student.id] ?? '').trim() || null,
+            })),
+            verification_notes: classNote.trim() || null,
+        };
+
+        const options = {
+            preserveScroll: true,
+            onFinish: () => setProcessing(false),
+            onSuccess: () => handleOpenChange(false),
+        };
+
+        if (mode === 'manual') {
+            router.post(route('attendance-reports.manual'), payload, options);
+        } else {
+            router.patch(route('attendance-reports.verify', attendance.id), payload, options);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>
+                        {mode === 'manual' ? 'Input absensi' : 'Verifikasi absensi'} {schoolClass?.name}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Semua siswa dianggap masuk. Tandai siswa yang tidak masuk, lalu simpan.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <form onSubmit={submit} className="space-y-4">
+                    <AttendanceStudentList
+                        students={students}
+                        statuses={statuses}
+                        notes={notes}
+                        onToggle={(studentId, status) =>
+                            setStatuses((current) => ({ ...current, [studentId]: status }))
+                        }
+                        onNoteChange={(studentId, value) =>
+                            setNotes((current) => ({ ...current, [studentId]: value }))
+                        }
+                    />
+
+                    <div className="space-y-2">
+                        <Label htmlFor="attendance-notes">Catatan untuk kelas (opsional)</Label>
+                        <Textarea
+                            id="attendance-notes"
+                            value={classNote}
+                            onChange={(event) => setClassNote(event.target.value)}
+                            placeholder="Contoh: 2 siswa izin lomba, 1 sakit."
+                            disabled={processing}
+                            className="min-h-[70px] resize-none"
+                        />
+                    </div>
+
+                    {errors.entries && (
+                        <p className="error-text" role="alert">
+                            {errors.entries}
+                        </p>
+                    )}
+
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleOpenChange(false)}
+                            disabled={processing}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            {processing ? (
+                                <>
+                                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                                    Menyimpan...
+                                </>
+                            ) : (
+                                'Simpan absensi'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function WaliKelasAttendanceCard({ schoolClass, attendance, attendanceLocked = false, students = [] }) {
+    const [dialogOpen, setDialogOpen] = useState(false);
+
+    const maps = useMemo(() => attendanceMaps(students, attendance), [students, attendance]);
+    const absentCount = attendance?.verified_absent_count ?? attendance?.absent_count ?? 0;
+    const isVerified = attendance?.status === 'terverifikasi';
+
+    return (
+        <>
+            <Card className="mb-4 min-w-0 overflow-hidden">
+                <div className="border-b px-4 py-3 sm:px-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h2 className="flex items-center gap-2 text-sm font-semibold text-text">
+                                <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
+                                Absensi hari ini
+                            </h2>
+                            <p className="mt-0.5 text-xs text-text-secondary">
+                                {attendance
+                                    ? 'Laporan sekretaris kelas. Koreksi bila perlu, lalu verifikasi.'
+                                    : 'Sekretaris belum mengirim absensi. Kamu bisa input manual.'}
+                            </p>
+                        </div>
+                        <AttendanceStatusBadge attendance={attendance} />
+                    </div>
+                </div>
+
+                <div className="space-y-3 p-4 sm:p-5">
+                    {attendance ? (
+                        <>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Metric label="Masuk" value={Math.max(0, students.length - absentCount)} tone="success" />
+                                <Metric label="Tidak masuk" value={absentCount} tone={absentCount > 0 ? 'danger' : 'neutral'} />
+                            </div>
+
+                            <AttendanceStudentList
+                                students={students}
+                                statuses={maps.statuses}
+                                notes={maps.notes}
+                                readOnly
+                            />
+
+                            <div className="space-y-1 text-xs text-text-muted">
+                                {attendance.reported_by?.name && (
+                                    <p>
+                                        Dilaporkan oleh{' '}
+                                        <span className="font-medium text-text-secondary">
+                                            {attendance.reported_by.name}
+                                        </span>
+                                        {attendance.reported_at && ` · ${formatDateTime(attendance.reported_at)}`}
+                                    </p>
+                                )}
+                                {attendance.verified_by?.name && (
+                                    <p>
+                                        Diverifikasi oleh{' '}
+                                        <span className="font-medium text-text-secondary">
+                                            {attendance.verified_by.name}
+                                        </span>
+                                        {attendance.verified_at && ` · ${formatDateTime(attendance.verified_at)}`}
+                                    </p>
+                                )}
+                                {attendance.verification_notes && (
+                                    <p className="rounded-md bg-bg-secondary px-2.5 py-2 leading-relaxed text-text-secondary">
+                                        Catatan: {attendance.verification_notes}
+                                    </p>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <p className="text-sm text-text-secondary">
+                            Belum ada absensi untuk kelas ini hari ini.
+                        </p>
+                    )}
+
+                    {!attendanceLocked ? (
+                        <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
+                            <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                            {attendance ? (isVerified ? 'Koreksi absensi' : 'Koreksi & verifikasi') : 'Input absensi'}
+                        </Button>
+                    ) : (
+                        <p className="text-xs text-text-muted">
+                            Box kelas sudah diambil sehingga absensi tidak bisa diubah lagi.
+                        </p>
+                    )}
+                </div>
+            </Card>
+
+            <AttendanceDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                schoolClass={schoolClass}
+                attendance={attendance}
+                students={students}
+                mode={attendance ? 'verify' : 'manual'}
+            />
+        </>
+    );
+}
+
+function SekretarisDashboard({ user, schoolClass, attendance, attendanceLocked, date }) {
+    if (!schoolClass) {
+        return (
+            <div>
+                <Head title="Dashboard" />
+                <PageHeader title={`Halo, ${user.name}`} date={date} />
+                <Card className="border-dashed">
+                    <div className="empty-state p-6 sm:p-10">
+                        <Users className="empty-state-icon h-10 w-10" aria-hidden="true" />
+                        <p className="empty-state-title">Kamu belum terdaftar di kelas</p>
+                        <p className="empty-state-desc">Hubungi kesiswaan untuk melengkapi data kelasmu</p>
+                    </div>
+                </Card>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <Head title="Absensi Kelas" />
+            <PageHeader title={`Absensi ${schoolClass.name}`} date={date} />
+
+            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                <StatCard
+                    icon={Users}
+                    label="Total siswa"
+                    value={schoolClass.students_count ?? schoolClass.students?.length ?? 0}
+                    tone="primary"
+                />
+                <StatCard
+                    icon={Check}
+                    label="Tercatat masuk"
+                    value={
+                        attendance
+                            ? (schoolClass.students_count ?? schoolClass.students?.length ?? 0) -
+                              (attendance.verified_absent_count ?? attendance.absent_count ?? 0)
+                            : '-'
+                    }
+                    tone="success"
+                />
+                <StatCard
+                    icon={Info}
+                    label="Tidak masuk"
+                    value={attendance ? (attendance.verified_absent_count ?? attendance.absent_count ?? 0) : '-'}
+                    tone={attendance ? 'warning' : 'neutral'}
+                />
+            </div>
+
+            <AttendanceForm
+                schoolClass={schoolClass}
+                attendance={attendance}
+                attendanceLocked={attendanceLocked}
+            />
+        </div>
+    );
+}
+
+function KetuaKelasDashboard({ user, schoolClass, attendance, attendanceLocked, date, flagWindowDays = 30 }) {
     const deposit = schoolClass?.deposit;
     const studentsCount = schoolClass?.students_count ?? schoolClass?.students?.length ?? 0;
     const collected = deposit?.reported_count ?? 0;
@@ -1076,6 +1927,8 @@ function KetuaKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
             <ChecklistForm
                 key={`${schoolClass.id}-${deposit?.id ?? 'new'}-${deposit?.status ?? 'new'}-${deposit?.reported_at ?? ''}`}
                 schoolClass={schoolClass}
+                attendance={attendance}
+                attendanceLocked={attendanceLocked}
                 flagWindowDays={flagWindowDays}
             />
         </div>
@@ -1133,6 +1986,13 @@ function WaliKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
 
             <AttentionNotice schoolClass={schoolClass} flagWindowDays={flagWindowDays} />
 
+            <WaliKelasAttendanceCard
+                schoolClass={schoolClass}
+                attendance={schoolClass.attendance}
+                attendanceLocked={schoolClass.attendance_locked}
+                students={students}
+            />
+
             <Card className="mb-4 min-w-0 overflow-hidden">
                 <div className="border-b px-4 py-3 sm:px-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1168,7 +2028,7 @@ function WaliKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
                     <h2 className="text-sm font-semibold text-text">Status per siswa</h2>
                 </div>
                 <div className="p-4 sm:p-5">
-                    <StudentStatusList students={students} />
+                    <StudentStatusList students={students} attendance={schoolClass.attendance} />
                 </div>
             </Card>
         </div>
@@ -1251,6 +2111,8 @@ export default function Dashboard({
     summary,
     ownStatus,
     deposit,
+    attendance,
+    attendanceLocked = false,
     flagThreshold = 3,
     flagWindowDays = 30,
 }) {
@@ -1282,8 +2144,20 @@ export default function Dashboard({
             <KetuaKelasDashboard
                 user={user}
                 schoolClass={schoolClass}
+                attendance={attendance}
+                attendanceLocked={attendanceLocked}
                 date={date}
                 flagWindowDays={flagWindowDays}
+            />
+        );
+    } else if (role === 'sekretaris') {
+        content = (
+            <SekretarisDashboard
+                user={user}
+                schoolClass={schoolClass}
+                attendance={attendance}
+                attendanceLocked={attendanceLocked}
+                date={date}
             />
         );
     } else {

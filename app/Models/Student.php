@@ -16,12 +16,14 @@ class Student extends Model
         'class_id',
         'nis',
         'is_class_leader',
+        'is_class_secretary',
     ];
 
     protected function casts(): array
     {
         return [
             'is_class_leader' => 'boolean',
+            'is_class_secretary' => 'boolean',
         ];
     }
 

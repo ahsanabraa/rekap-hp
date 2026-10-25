@@ -36,6 +36,14 @@ class HandleInertiaRequests extends Middleware
             ],
             'isClassLeader' => fn () => $request->user()?->role === 'siswa'
                 && (bool) $request->user()?->student?->is_class_leader,
+            'isClassSecretary' => fn () => $request->user()?->role === 'siswa'
+                && (bool) $request->user()?->student?->is_class_secretary,
+            'classRole' => fn () => match (true) {
+                $request->user()?->role !== 'siswa' => null,
+                (bool) $request->user()?->student?->is_class_leader => 'ketua_kelas',
+                (bool) $request->user()?->student?->is_class_secretary => 'sekretaris',
+                default => null,
+            },
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
             ],

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttendanceReportController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\ClassDepositController;
 use App\Http\Controllers\DashboardController;
@@ -27,6 +28,18 @@ Route::post('/class-deposits', [ClassDepositController::class, 'store'])
     ->middleware(['auth', 'role:siswa'])
     ->name('class-deposits.store');
 
+Route::post('/attendance-reports', [AttendanceReportController::class, 'store'])
+    ->middleware(['auth', 'role:siswa'])
+    ->name('attendance-reports.store');
+
+Route::post('/attendance-reports/manual', [AttendanceReportController::class, 'storeManual'])
+    ->middleware(['auth', 'role:wali_kelas'])
+    ->name('attendance-reports.manual');
+
+Route::patch('/attendance-reports/{attendanceReport}/verify', [AttendanceReportController::class, 'verify'])
+    ->middleware(['auth', 'role:wali_kelas'])
+    ->name('attendance-reports.verify');
+
 Route::patch('/class-deposits/{classDeposit}/verify', [ClassDepositController::class, 'verify'])
     ->middleware(['auth', 'role:kesiswaan'])
     ->name('class-deposits.verify');
@@ -50,6 +63,9 @@ Route::middleware(['auth', 'role:kesiswaan'])->group(function () {
     Route::post('/students', [StudentController::class, 'store'])->name('students.store');
     Route::post('/students/{student}/class-leader', [StudentController::class, 'setClassLeader'])
         ->name('students.class-leader');
+
+    Route::post('/students/{student}/class-secretary', [StudentController::class, 'setClassSecretary'])
+        ->name('students.class-secretary');
 
     Route::post('/teachers/{user}/reset-password', [PasswordResetController::class, 'resetTeacher'])
         ->name('teachers.reset-password');

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AttendanceReport;
 use App\Models\ClassDeposit;
 use App\Models\CollectionRecord;
 use App\Models\SchoolClass;
@@ -31,7 +32,7 @@ class DashboardController extends Controller
         $classes = SchoolClass::query()
             ->with([
                 'homeroom:id,name',
-                'students:id,user_id,class_id,nis,is_class_leader',
+                'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
                 'students.user:id,name',
                 'students.collectionRecords' => fn ($query) => $query
                     ->whereDate('collection_date', today())
@@ -40,6 +41,13 @@ class DashboardController extends Controller
                 'deposits' => fn ($query) => $query
                     ->whereDate('deposit_date', today())
                     ->with(['reportedBy:id,name', 'verifiedBy:id,name', 'releasedBy:id,name']),
+                'attendanceReports' => fn ($query) => $query
+                    ->whereDate('report_date', today())
+                    ->with([
+                        'records:id,attendance_report_id,student_id,status,notes',
+                        'reportedBy:id,name',
+                        'verifiedBy:id,name',
+                    ]),
             ])
             ->withCount('students')
             ->orderBy('grade')
@@ -49,14 +57,23 @@ class DashboardController extends Controller
         $shortageCounts = $this->shortageCounts();
 
         $classes->each(function (SchoolClass $schoolClass) use ($shortageCounts): void {
+            $deposit = $schoolClass->deposits->first();
+
             $this->attachDeposit(
                 $schoolClass,
-                $schoolClass->deposits->first(),
+                $deposit,
                 $shortageCounts[$schoolClass->id] ?? 0,
+            );
+
+            $this->attachAttendance(
+                $schoolClass,
+                $schoolClass->attendanceReports->first(),
+                (bool) $deposit?->isReleased(),
             );
         });
 
         $deposits = $classes->pluck('deposit')->filter();
+        $attendances = $classes->pluck('attendance')->filter();
 
         return Inertia::render('Dashboard', [
             'role' => 'kesiswaan',
@@ -71,6 +88,9 @@ class DashboardController extends Controller
                 'total_students' => (int) $classes->sum('students_count'),
                 'reported_total' => (int) $deposits->sum('reported_count'),
                 'verified_total' => (int) $deposits->sum(fn (ClassDeposit $deposit) => $deposit->verified_count ?? 0),
+                'attendance_submitted_classes' => $attendances->count(),
+                'attendance_verified_classes' => $attendances->filter(fn (AttendanceReport $report) => $report->isVerified())->count(),
+                'absent_total' => (int) $attendances->sum(fn (AttendanceReport $report) => $report->absentTotal()),
             ],
             'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
             'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
@@ -81,7 +101,7 @@ class DashboardController extends Controller
     {
         $schoolClass = $user->homeroomClass()
             ->with([
-                'students:id,user_id,class_id,nis,is_class_leader',
+                'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
                 'students.user:id,name',
                 'students.collectionRecords' => fn ($query) => $query
                     ->whereDate('collection_date', today())
@@ -90,6 +110,13 @@ class DashboardController extends Controller
                 'deposits' => fn ($query) => $query
                     ->whereDate('deposit_date', today())
                     ->with(['reportedBy:id,name', 'verifiedBy:id,name', 'releasedBy:id,name']),
+                'attendanceReports' => fn ($query) => $query
+                    ->whereDate('report_date', today())
+                    ->with([
+                        'records:id,attendance_report_id,student_id,status,notes',
+                        'reportedBy:id,name',
+                        'verifiedBy:id,name',
+                    ]),
             ])
             ->withCount('students')
             ->first();
@@ -99,6 +126,12 @@ class DashboardController extends Controller
                 $schoolClass,
                 $schoolClass->deposits->first(),
                 $this->shortageCountFor($schoolClass->id),
+            );
+
+            $this->attachAttendance(
+                $schoolClass,
+                $schoolClass->attendanceReports->first(),
+                (bool) $schoolClass->deposit?->isReleased(),
             );
         }
 
@@ -141,11 +174,14 @@ class DashboardController extends Controller
             ->with(['reportedBy:id,name', 'verifiedBy:id,name', 'releasedBy:id,name'])
             ->first();
 
+        $attendance = $this->todayAttendance($student->class_id);
+        $attendanceLocked = $this->attendanceLocked($student->class_id);
+
         if ($student->is_class_leader) {
             $schoolClass = SchoolClass::query()
                 ->with([
                     'homeroom:id,name',
-                    'students:id,user_id,class_id,nis,is_class_leader',
+                    'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
                     'students.user:id,name',
                     'students.collectionRecords' => fn ($query) => $query
                         ->whereDate('collection_date', today())
@@ -165,8 +201,32 @@ class DashboardController extends Controller
                 'role' => 'ketua_kelas',
                 'date' => today()->toDateString(),
                 'schoolClass' => $schoolClass,
+                'attendance' => $attendance,
+                'attendanceLocked' => $attendanceLocked,
                 'ownStatus' => $ownStatus,
-                'student' => $student->only(['id', 'nis', 'is_class_leader']),
+                'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_secretary']),
+                'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+                'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+            ]);
+        }
+
+        if ($student->is_class_secretary) {
+            $schoolClass = SchoolClass::query()
+                ->with([
+                    'homeroom:id,name',
+                    'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
+                    'students.user:id,name',
+                ])
+                ->withCount('students')
+                ->find($student->class_id);
+
+            return Inertia::render('Dashboard', [
+                'role' => 'sekretaris',
+                'date' => today()->toDateString(),
+                'schoolClass' => $schoolClass,
+                'attendance' => $attendance,
+                'attendanceLocked' => $attendanceLocked,
+                'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_secretary']),
                 'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
                 'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
             ]);
@@ -177,8 +237,9 @@ class DashboardController extends Controller
             'date' => today()->toDateString(),
             'schoolClass' => $student->schoolClass?->only(['id', 'name']),
             'deposit' => $deposit,
+            'attendance' => $attendance,
             'ownStatus' => $ownStatus,
-            'student' => $student->only(['id', 'nis', 'is_class_leader']),
+            'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_secretary']),
             'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
             'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
         ]);
@@ -190,6 +251,35 @@ class DashboardController extends Controller
         $schoolClass->setAttribute('shortages_last_30_days', $shortages);
         $schoolClass->setAttribute('needs_attention', $shortages >= ClassDeposit::ATTENTION_THRESHOLD);
         $schoolClass->unsetRelation('deposits');
+    }
+
+    private function attachAttendance(SchoolClass $schoolClass, ?AttendanceReport $attendance, bool $locked): void
+    {
+        $schoolClass->setAttribute('attendance', $attendance);
+        $schoolClass->setAttribute('attendance_locked', $locked);
+        $schoolClass->unsetRelation('attendanceReports');
+    }
+
+    private function todayAttendance(int $classId): ?AttendanceReport
+    {
+        return AttendanceReport::query()
+            ->where('class_id', $classId)
+            ->whereDate('report_date', today())
+            ->with([
+                'records:id,attendance_report_id,student_id,status,notes',
+                'reportedBy:id,name',
+                'verifiedBy:id,name',
+            ])
+            ->first();
+    }
+
+    private function attendanceLocked(int $classId): bool
+    {
+        return ClassDeposit::query()
+            ->where('class_id', $classId)
+            ->whereDate('deposit_date', today())
+            ->whereNotNull('released_at')
+            ->exists();
     }
 
     /**

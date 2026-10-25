@@ -30,6 +30,10 @@ const navigation = [
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
     const isClassLeader = usePage().props.isClassLeader ?? false;
+    const isClassSecretary = usePage().props.isClassSecretary ?? false;
+    const classRole =
+        usePage().props.classRole ??
+        (isClassLeader ? 'ketua_kelas' : isClassSecretary ? 'sekretaris' : null);
     const flash = usePage().props.flash ?? {};
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -197,7 +201,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     <div className="hidden sm:flex items-center gap-2 text-xs text-text-muted">
                         {isKesiswaan && 'Kesiswaan'}
                         {isWaliKelas && 'Wali Kelas'}
-                        {isSiswa && (isClassLeader ? 'Ketua Kelas' : 'Siswa')}
+                        {isSiswa && (classRole === 'ketua_kelas' ? 'Ketua Kelas' : classRole === 'sekretaris' ? 'Sekretaris' : 'Siswa')}
                     </div>
                     
                     {/* Profile Menu */}
@@ -219,14 +223,16 @@ export default function AuthenticatedLayout({ header, children }) {
                                     <p className="truncate text-sm font-medium text-text">{user.name}</p>
                                     <p className="truncate text-xs text-text-muted">@{user.username}</p>
                                     <div className="mt-1">
-                                        <Badge variant={isKesiswaan ? 'primary' : isWaliKelas ? 'success' : 'warning'}>
+                                        <Badge variant={isKesiswaan ? 'primary' : isWaliKelas ? 'success' : classRole === 'ketua_kelas' ? 'warning' : classRole === 'sekretaris' ? 'primary' : 'neutral'}>
                                             {isKesiswaan
                                                 ? 'Kesiswaan'
                                                 : isWaliKelas
                                                   ? 'Wali Kelas'
-                                                  : isClassLeader
+                                                  : classRole === 'ketua_kelas'
                                                     ? 'Ketua Kelas'
-                                                    : 'Siswa'}
+                                                    : classRole === 'sekretaris'
+                                                      ? 'Sekretaris'
+                                                      : 'Siswa'}
                                         </Badge>
                                     </div>
                                 </div>

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -58,6 +59,12 @@ class StudentController extends Controller
             'is_class_leader' => ['required', 'boolean'],
         ]);
 
+        if ($validated['is_class_leader'] && $student->is_class_secretary) {
+            throw ValidationException::withMessages([
+                'is_class_leader' => $student->user->name.' sudah menjadi sekretaris kelas. Pilih siswa lain.',
+            ]);
+        }
+
         DB::transaction(function () use ($student, $validated): void {
             if ($validated['is_class_leader']) {
                 Student::query()
@@ -71,6 +78,35 @@ class StudentController extends Controller
         $message = $validated['is_class_leader']
             ? $student->user->name.' sekarang menjadi ketua kelas.'
             : 'Status ketua kelas '.$student->user->name.' dicabut.';
+
+        return back()->with('success', $message);
+    }
+
+    public function setClassSecretary(Request $request, Student $student): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_class_secretary' => ['required', 'boolean'],
+        ]);
+
+        if ($validated['is_class_secretary'] && $student->is_class_leader) {
+            throw ValidationException::withMessages([
+                'is_class_secretary' => $student->user->name.' sudah menjadi ketua kelas. Pilih siswa lain.',
+            ]);
+        }
+
+        DB::transaction(function () use ($student, $validated): void {
+            if ($validated['is_class_secretary']) {
+                Student::query()
+                    ->where('class_id', $student->class_id)
+                    ->update(['is_class_secretary' => false]);
+            }
+
+            $student->update(['is_class_secretary' => (bool) $validated['is_class_secretary']]);
+        });
+
+        $message = $validated['is_class_secretary']
+            ? $student->user->name.' sekarang menjadi sekretaris kelas.'
+            : 'Status sekretaris kelas '.$student->user->name.' dicabut.';
 
         return back()->with('success', $message);
     }
