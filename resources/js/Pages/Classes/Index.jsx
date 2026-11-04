@@ -1,31 +1,203 @@
+import { useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Card } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Picker } from '@/Components/ui/picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/Components/ui/table';
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/Components/ui/alert-dialog';
-import { BookOpen, Plus, Users, User, RotateCcw, Trash2, Loader2 } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/Components/ui/dialog';
+import { BookOpen, Plus, Users, User, RotateCcw, Trash2, Loader2, Pencil } from 'lucide-react';
+import { JURUSAN, TINGKAT } from '@/lib/jurusan';
+import { cn } from '@/lib/utils';
+import { useFeedback } from '@/Components/FeedbackProvider';
+
+function ClassFields({ data, setData, errors, teachers, disabled }) {
+    const homeroomOptions = [
+        { value: '', label: 'Belum ditentukan' },
+        ...teachers.map((teacher) => ({ value: String(teacher.id), label: teacher.name })),
+    ];
+
+    return (
+        <div className="space-y-5">
+            <div className="space-y-2">
+                <Label>Tingkat</Label>
+                <div role="radiogroup" aria-label="Tingkat" className="grid grid-cols-3 gap-2">
+                    {TINGKAT.map((tingkat) => {
+                        const active = data.grade === tingkat;
+
+                        return (
+                            <button
+                                key={tingkat}
+                                type="button"
+                                role="radio"
+                                aria-checked={active}
+                                disabled={disabled}
+                                onClick={() => setData('grade', tingkat)}
+                                className={cn(
+                                    'h-10 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                                    active
+                                        ? 'border-primary bg-primary-light text-primary'
+                                        : 'border-border bg-white text-text-secondary hover:bg-bg-secondary',
+                                )}
+                            >
+                                {tingkat}
+                            </button>
+                        );
+                    })}
+                </div>
+                {errors.grade && <p className="error-text" role="alert">{errors.grade}</p>}
+            </div>
+
+            <div className="grid grid-cols-[1fr_96px] gap-4">
+                <div className="space-y-2">
+                    <Label>Jurusan</Label>
+                    <Picker
+                        value={data.jurusan}
+                        onValueChange={(value) => setData('jurusan', value)}
+                        options={JURUSAN}
+                        placeholder="Pilih jurusan"
+                        disabled={disabled}
+                        invalid={Boolean(errors.jurusan)}
+                    />
+                    {errors.jurusan && <p className="error-text" role="alert">{errors.jurusan}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label>Rombel</Label>
+                    <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={99}
+                        value={data.rombel}
+                        onChange={(event) => setData('rombel', event.target.value)}
+                        disabled={disabled}
+                        placeholder="1"
+                        className={errors.rombel ? 'border-danger' : undefined}
+                    />
+                    {errors.rombel && <p className="error-text" role="alert">{errors.rombel}</p>}
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label>Wali Kelas</Label>
+                <Picker
+                    value={data.homeroom_user_id}
+                    onValueChange={(value) => setData('homeroom_user_id', value)}
+                    options={homeroomOptions}
+                    placeholder="Belum ditentukan"
+                    disabled={disabled}
+                    searchable
+                />
+                {errors.homeroom_user_id && (
+                    <p className="error-text" role="alert">{errors.homeroom_user_id}</p>
+                )}
+            </div>
+
+            <div className="rounded-lg bg-bg-secondary px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
+                Nama kelas:{' '}
+                <span className="font-semibold text-text">
+                    {data.grade || '—'} {data.jurusan || '—'} {data.rombel || '—'}
+                </span>
+            </div>
+        </div>
+    );
+}
 
 export default function Index({ classes, teachers }) {
+    const feedback = useFeedback();
+    const [editing, setEditing] = useState(null);
+
     const { data, setData, post, processing, errors, reset } = useForm({
-        name: '',
-        grade: '',
-        group_name: '',
+        grade: '10',
+        jurusan: JURUSAN[0],
+        rombel: '1',
+        homeroom_user_id: '',
+    });
+
+    const editForm = useForm({
+        grade: '10',
+        jurusan: JURUSAN[0],
+        rombel: '1',
         homeroom_user_id: '',
     });
 
     function submit(event) {
         event.preventDefault();
-        post(route('classes.store'), { onSuccess: () => reset() });
+        post(route('classes.store'), { preserveScroll: true, onSuccess: () => reset() });
     }
 
-    function resetPassword(teacher) {
-        if (confirm(`Reset password ${teacher.name} ke "password"?`)) {
-            router.post(route('teachers.reset-password', teacher.id), {}, { preserveScroll: true });
+    function startEdit(schoolClass) {
+        editForm.setData({
+            grade: schoolClass.grade,
+            jurusan: schoolClass.jurusan,
+            rombel: String(schoolClass.rombel),
+            homeroom_user_id: schoolClass.homeroom_user_id
+                ? String(schoolClass.homeroom_user_id)
+                : '',
+        });
+        editForm.clearErrors();
+        setEditing(schoolClass);
+    }
+
+    function submitEdit(event) {
+        event.preventDefault();
+        editForm.patch(route('classes.update', editing.id), {
+            preserveScroll: true,
+            onSuccess: () => setEditing(null),
+        });
+    }
+
+    async function resetPassword(teacher) {
+        const confirmed = await feedback.confirm({
+            title: 'Reset password wali kelas?',
+            description: `Password ${teacher.name} akan direset menjadi "password". Sampaikan password baru ke yang bersangkutan.`,
+            confirmLabel: 'Reset password',
+            tone: 'warning',
+        });
+
+        if (!confirmed) {
+            return;
         }
+
+        router.post(route('teachers.reset-password', teacher.id), {}, {
+            preserveScroll: true,
+            onError: () => feedback.error('Password gagal direset. Coba lagi.'),
+        });
+    }
+
+    async function destroyClass(schoolClass) {
+        if (schoolClass.students_count > 0) {
+            feedback.warning(
+                `${schoolClass.name} masih memiliki ${schoolClass.students_count} siswa. Pindahkan atau hapus siswanya terlebih dahulu.`,
+                { title: 'Kelas tidak bisa dihapus' },
+            );
+            return;
+        }
+
+        const confirmed = await feedback.confirm({
+            title: `Hapus ${schoolClass.name}?`,
+            description: 'Tindakan ini tidak dapat dibatalkan.',
+            confirmLabel: 'Hapus kelas',
+            tone: 'danger',
+        });
+
+        if (!confirmed) {
+            return;
+        }
+
+        router.delete(route('classes.destroy', schoolClass.id), {
+            preserveScroll: true,
+            onError: () => feedback.error('Kelas gagal dihapus. Coba lagi.'),
+        });
     }
 
     return (
@@ -38,7 +210,7 @@ export default function Index({ classes, teachers }) {
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-                    <Card>
+                    <Card className="min-w-0">
                         <div className="p-5 border-b">
                             <div className="flex items-center gap-2">
                                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light">
@@ -48,62 +220,13 @@ export default function Index({ classes, teachers }) {
                             </div>
                         </div>
                         <form onSubmit={submit} className="p-5 space-y-5">
-                            <div className="space-y-2">
-                                <Label>Nama Kelas</Label>
-                                <Input
-                                    value={data.name}
-                                    onChange={(e) => setData('name', e.target.value)}
-                                    required
-                                    disabled={processing}
-                                    placeholder="Contoh: Kelas 10 IPA 1"
-                                />
-                                {errors.name && <p className="error-text" role="alert">{errors.name}</p>}
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Tingkat</Label>
-                                    <Input
-                                        value={data.grade}
-                                        onChange={(e) => setData('grade', e.target.value)}
-                                        placeholder="10"
-                                        required
-                                        disabled={processing}
-                                    />
-                                    {errors.grade && <p className="error-text" role="alert">{errors.grade}</p>}
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Rombel</Label>
-                                    <Input
-                                        value={data.group_name}
-                                        onChange={(e) => setData('group_name', e.target.value)}
-                                        placeholder="IPA 1"
-                                        required
-                                        disabled={processing}
-                                    />
-                                    {errors.group_name && <p className="error-text" role="alert">{errors.group_name}</p>}
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Wali Kelas</Label>
-                                <Select
-                                    value={data.homeroom_user_id ? String(data.homeroom_user_id) : 'none'}
-                                    onValueChange={(value) => setData('homeroom_user_id', value === 'none' ? '' : value)}
-                                    disabled={processing}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Belum ditentukan" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Belum ditentukan</SelectItem>
-                                        {teachers.map((teacher) => (
-                                            <SelectItem key={teacher.id} value={String(teacher.id)}>
-                                                {teacher.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {errors.homeroom_user_id && <p className="error-text" role="alert">{errors.homeroom_user_id}</p>}
-                            </div>
+                            <ClassFields
+                                data={data}
+                                setData={setData}
+                                errors={errors}
+                                teachers={teachers}
+                                disabled={processing}
+                            />
                             <Button type="submit" className="w-full justify-center" disabled={processing}>
                                 {processing ? (
                                     <>
@@ -120,20 +243,20 @@ export default function Index({ classes, teachers }) {
                         </form>
                     </Card>
 
-                    <Card>
+                    <Card className="min-w-0">
                         <div className="p-5 border-b">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success-light">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-success-light">
                                         <BookOpen className="h-5 w-5 text-success" aria-hidden="true" />
                                     </div>
-                                    <h2 className="text-lg font-medium text-text">Daftar Kelas</h2>
+                                    <h2 className="truncate text-lg font-medium text-text">Daftar Kelas</h2>
                                 </div>
                                 <span className="shrink-0 text-sm text-text-muted">{classes.length} kelas</span>
                             </div>
                         </div>
                         <div className="table-container">
-                            <Table>
+                            <Table className="min-w-[720px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Kelas</TableHead>
@@ -154,31 +277,26 @@ export default function Index({ classes, teachers }) {
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                         <Button variant="ghost" size="sm" className="text-danger hover:text-[hsl(0_84%_55%)]">
-                                                            <Trash2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-                                                            Hapus
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Hapus kelas?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                Tindakan ini tidak dapat dibatalkan. Semua data siswa di kelas ini akan terhapus permanen.
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                            <AlertDialogAction
-                                                                onClick={() => router.delete(route('classes.destroy', schoolClass.id))}
-                                                                 className="bg-danger hover:bg-[hsl(0_84%_55%)]"
-                                                            >
-                                                                Hapus
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => startEdit(schoolClass)}
+                                                        className="text-text-secondary hover:text-text"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                                                        Edit
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => destroyClass(schoolClass)}
+                                                        className="text-danger hover:text-[hsl(0_84%_55%)]"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                                                        Hapus
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -198,14 +316,14 @@ export default function Index({ classes, teachers }) {
                         </div>
                     </Card>
 
-                    <Card className="lg:col-span-2">
+                    <Card className="min-w-0 lg:col-span-2">
                         <div className="p-5 border-b">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning-light">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-warning-light">
                                         <User className="h-5 w-5 text-warning" aria-hidden="true" />
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <h2 className="text-lg font-medium text-text">Daftar Wali Kelas</h2>
                                         <p className="mt-0.5 text-sm text-text-secondary">Reset password wali kelas yang lupa ke password awal.</p>
                                     </div>
@@ -214,7 +332,7 @@ export default function Index({ classes, teachers }) {
                             </div>
                         </div>
                         <div className="table-container">
-                            <Table>
+                            <Table className="min-w-[520px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Nama</TableHead>
@@ -232,7 +350,7 @@ export default function Index({ classes, teachers }) {
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => resetPassword(teacher)}
-                                                     className="text-primary hover:text-primary-hover"
+                                                    className="text-primary hover:text-primary-hover"
                                                 >
                                                     <RotateCcw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
                                                     Reset PW
@@ -257,6 +375,46 @@ export default function Index({ classes, teachers }) {
                     </Card>
                 </div>
             </div>
+
+            <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Edit Kelas</DialogTitle>
+                        <DialogDescription>
+                            Ubah tingkat, jurusan, rombel, atau wali kelas.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={submitEdit} className="space-y-5">
+                        <ClassFields
+                            data={editForm.data}
+                            setData={editForm.setData}
+                            errors={editForm.errors}
+                            teachers={teachers}
+                            disabled={editForm.processing}
+                        />
+                        <DialogFooter className="gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setEditing(null)}
+                                disabled={editForm.processing}
+                            >
+                                Batal
+                            </Button>
+                            <Button type="submit" disabled={editForm.processing}>
+                                {editForm.processing ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                        Menyimpan...
+                                    </>
+                                ) : (
+                                    'Simpan Perubahan'
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

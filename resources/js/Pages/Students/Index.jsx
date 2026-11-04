@@ -4,13 +4,14 @@ import { Card } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Label } from '@/Components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/ui/select';
+import { Picker } from '@/Components/ui/picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/Components/ui/table';
 import { Badge } from '@/Components/ui/badge';
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/Components/ui/alert-dialog';
 import { Users, Plus, RotateCcw, Loader2, Crown, ClipboardList } from 'lucide-react';
+import { useFeedback } from '@/Components/FeedbackProvider';
 
 export default function Index({ students, classes }) {
+    const feedback = useFeedback();
     const { data, setData, post, processing, errors, reset } = useForm({
         name: '',
         nis: '',
@@ -22,39 +23,71 @@ export default function Index({ students, classes }) {
         post(route('students.store'), { onSuccess: () => reset() });
     }
 
-    function resetPassword(student) {
-        if (confirm(`Reset password ${student.user.name} ke "password"?`)) {
-            router.post(route('students.reset-password', student.id), {}, { preserveScroll: true });
+    async function resetPassword(student) {
+        const confirmed = await feedback.confirm({
+            title: 'Reset password siswa?',
+            description: `Password ${student.user.name} akan direset menjadi "password". Lakukan hanya jika siswa benar-benar lupa password.`,
+            confirmLabel: 'Reset password',
+            tone: 'warning',
+        });
+
+        if (!confirmed) {
+            return;
         }
+
+        router.post(route('students.reset-password', student.id), {}, {
+            preserveScroll: true,
+            onError: () => feedback.error('Password gagal direset. Coba lagi.'),
+        });
     }
 
-    function toggleClassLeader(student) {
-        if (
-            student.is_class_leader &&
-            !confirm(`Cabut status ketua kelas dari ${student.user.name}?`)
-        ) {
-            return;
+    async function toggleClassLeader(student) {
+        if (student.is_class_leader) {
+            const confirmed = await feedback.confirm({
+                title: 'Cabut status ketua kelas?',
+                description: `${student.user.name} tidak lagi tercatat sebagai ketua kelas.`,
+                confirmLabel: 'Cabut status',
+                tone: 'danger',
+            });
+
+            if (!confirmed) {
+                return;
+            }
         }
 
         router.post(
             route('students.class-leader', student.id),
             { is_class_leader: !student.is_class_leader },
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onError: (errors) =>
+                    feedback.error(errors.is_class_leader ?? 'Status ketua kelas gagal diperbarui.'),
+            },
         );
     }
 
-    function toggleClassSecretary(student) {
-        if (
-            student.is_class_secretary &&
-            !confirm(`Cabut status sekretaris kelas dari ${student.user.name}?`)
-        ) {
-            return;
+    async function toggleClassSecretary(student) {
+        if (student.is_class_secretary) {
+            const confirmed = await feedback.confirm({
+                title: 'Cabut status sekretaris kelas?',
+                description: `${student.user.name} tidak lagi tercatat sebagai sekretaris kelas.`,
+                confirmLabel: 'Cabut status',
+                tone: 'danger',
+            });
+
+            if (!confirmed) {
+                return;
+            }
         }
 
         router.post(
             route('students.class-secretary', student.id),
             { is_class_secretary: !student.is_class_secretary },
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onError: (errors) =>
+                    feedback.error(errors.is_class_secretary ?? 'Status sekretaris kelas gagal diperbarui.'),
+            },
         );
     }
 
@@ -68,7 +101,7 @@ export default function Index({ students, classes }) {
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-                    <Card>
+                    <Card className="min-w-0">
                         <div className="p-5 border-b">
                             <div className="flex items-center gap-2">
                                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-light">
@@ -102,23 +135,18 @@ export default function Index({ students, classes }) {
                             </div>
                             <div className="space-y-2">
                                 <Label>Kelas</Label>
-                                <Select
+                                <Picker
                                     value={data.class_id ? String(data.class_id) : ''}
                                     onValueChange={(value) => setData('class_id', value)}
-                                    required
+                                    options={classes.map((schoolClass) => ({
+                                        value: String(schoolClass.id),
+                                        label: schoolClass.name,
+                                    }))}
+                                    placeholder="Pilih kelas"
                                     disabled={processing}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih kelas" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {classes.map((schoolClass) => (
-                                            <SelectItem key={schoolClass.id} value={String(schoolClass.id)}>
-                                                {schoolClass.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    searchable
+                                    invalid={Boolean(errors.class_id)}
+                                />
                                 {errors.class_id && <p className="error-text" role="alert">{errors.class_id}</p>}
                             </div>
                             <p className="rounded-lg bg-bg-secondary px-3 py-2.5 text-xs leading-relaxed text-text-secondary">
@@ -140,20 +168,20 @@ export default function Index({ students, classes }) {
                         </form>
                     </Card>
 
-                    <Card>
+                    <Card className="min-w-0">
                         <div className="p-5 border-b">
                             <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success-light">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-success-light">
                                         <Users className="h-5 w-5 text-success" aria-hidden="true" />
                                     </div>
-                                    <h2 className="text-lg font-medium text-text">Daftar Siswa</h2>
+                                    <h2 className="truncate text-lg font-medium text-text">Daftar Siswa</h2>
                                 </div>
                                 <span className="shrink-0 text-sm text-text-muted">{students.length} siswa</span>
                             </div>
                         </div>
                         <div className="table-container">
-                            <Table>
+                            <Table className="min-w-[720px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>NIS</TableHead>

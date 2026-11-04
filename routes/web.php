@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'role:kesiswaan'])->group(function () {
     Route::get('/classes', [ClassController::class, 'index'])->name('classes.index');
     Route::post('/classes', [ClassController::class, 'store'])->name('classes.store');
+    Route::patch('/classes/{schoolClass}', [ClassController::class, 'update'])->name('classes.update');
     Route::delete('/classes/{schoolClass}', [ClassController::class, 'destroy'])->name('classes.destroy');
 
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');

@@ -18,6 +18,7 @@ import {
     DialogTitle,
 } from '@/Components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { useFeedback } from '@/Components/FeedbackProvider';
 import {
     AlertTriangle,
     Calendar,
@@ -88,6 +89,32 @@ const attendanceStatusOptions = [
         icon: Info,
         activeClass: 'border-border-strong bg-bg-tertiary text-text',
     },
+];
+
+const statusTone = {
+    primary: 'bg-primary-light text-primary',
+    success: 'bg-success-light text-success',
+    warning: 'bg-warning-light text-warning',
+    danger: 'bg-danger-light text-danger',
+    neutral: 'bg-bg-tertiary text-text-secondary',
+};
+
+const studentStatusLegend = [
+    { key: 'dikumpulkan', label: 'Setor HP', icon: Check, tone: 'success' },
+    { key: 'tidak_mengumpulkan', label: 'Tidak membawa', icon: X, tone: 'danger' },
+    { key: 'sedang_dipinjam', label: 'Dipinjam', icon: Clock, tone: 'warning' },
+    { key: 'tidak_masuk', label: 'Tidak masuk', icon: Info, tone: 'neutral' },
+    { key: 'belum', label: 'Belum didata', icon: Info, tone: 'primary' },
+];
+
+const attendanceLegend = [
+    { key: 'masuk', label: 'Masuk', icon: Check, tone: 'success' },
+    { key: 'tidak_masuk', label: 'Tidak masuk', icon: Info, tone: 'neutral' },
+];
+
+const verifyStatusLegend = [
+    ...studentStatusLegend,
+    { key: 'perlu_dicek', label: 'Perlu dicek', icon: AlertTriangle, tone: 'danger' },
 ];
 
 function attendanceMaps(students = [], attendance = null) {
@@ -222,18 +249,6 @@ function DepositStatusBadge({ deposit }) {
     );
 }
 
-function StudentStatusBadge({ status }) {
-    const meta = studentStatusMeta[status] ?? { label: 'Belum didata', variant: 'neutral', icon: Info };
-    const Icon = meta.icon;
-
-    return (
-        <Badge variant={meta.variant}>
-            <Icon className="mr-1 h-3 w-3" aria-hidden="true" />
-            {meta.label}
-        </Badge>
-    );
-}
-
 function AttendanceStatusBadge({ attendance }) {
     if (!attendance) {
         return <Badge variant="neutral">Absensi belum diisi</Badge>;
@@ -250,6 +265,56 @@ function AttendanceStatusBadge({ attendance }) {
             <Icon className="mr-1 h-3 w-3" aria-hidden="true" />
             {meta.label}
         </Badge>
+    );
+}
+
+function StatusLegend({ items = [], className }) {
+    return (
+        <div
+            className={cn(
+                'flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-bg-secondary px-2.5 py-2',
+                className,
+            )}
+        >
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">Keterangan</span>
+            {items.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                    <span
+                        key={item.key}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-text-secondary sm:text-xs"
+                    >
+                        <span
+                            className={cn(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+                                statusTone[item.tone] ?? statusTone.neutral,
+                            )}
+                        >
+                            <Icon className="h-3 w-3" aria-hidden="true" />
+                        </span>
+                        {item.label}
+                    </span>
+                );
+            })}
+        </div>
+    );
+}
+
+function StatusIcon({ label, icon: Icon = Info, tone = 'neutral', className }) {
+    return (
+        <span
+            role="img"
+            aria-label={label}
+            title={label}
+            className={cn(
+                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
+                statusTone[tone] ?? statusTone.neutral,
+                className,
+            )}
+        >
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        </span>
     );
 }
 
@@ -312,6 +377,8 @@ function AttendanceStudentList({
                 </div>
             </div>
 
+            {readOnly && <StatusLegend items={attendanceLegend} className="mb-3" />}
+
             <p className="mb-2 text-xs tabular-nums text-text-muted" role="status">
                 Menampilkan {filtered.length} dari {students.length} siswa
             </p>
@@ -327,95 +394,112 @@ function AttendanceStudentList({
                         const status = statuses[student.id] ?? 'masuk';
                         const isAbsent = status === 'tidak_masuk';
 
+                        const identity = (
+                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                                <div
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary sm:h-9 sm:w-9 sm:text-sm"
+                                    aria-hidden="true"
+                                >
+                                    {student.user.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <p className="truncate text-sm font-medium text-text">
+                                            {student.user.name}
+                                        </p>
+                                        {student.is_class_leader && (
+                                            <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+                                                <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
+                                                Ketua
+                                            </Badge>
+                                        )}
+                                        {student.is_class_secretary && (
+                                            <Badge variant="primary" className="px-1.5 py-0 text-[10px]">
+                                                Sekretaris
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <p className="truncate text-xs tabular-nums text-text-muted">
+                                        NIS {student.nis}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+
+                        if (readOnly) {
+                            return (
+                                <div
+                                    key={student.id}
+                                    className="rounded-lg border border-border bg-white p-2.5 sm:p-3"
+                                >
+                                    <div className="flex min-w-0 items-center justify-between gap-2.5">
+                                        {identity}
+                                        {isAbsent ? (
+                                            <StatusIcon
+                                                label="Tidak masuk"
+                                                icon={Info}
+                                                tone="neutral"
+                                                className="shrink-0"
+                                            />
+                                        ) : (
+                                            <StatusIcon
+                                                label="Masuk"
+                                                icon={Check}
+                                                tone="success"
+                                                className="shrink-0"
+                                            />
+                                        )}
+                                    </div>
+                                    {isAbsent && notes[student.id] && (
+                                        <p className="mt-1.5 pl-10 text-xs text-text-secondary sm:pl-11">
+                                            Catatan: {notes[student.id]}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        }
+
                         return (
                             <div
                                 key={student.id}
                                 className="rounded-lg border border-border bg-white p-2.5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:p-3"
                             >
-                                <div className="flex min-w-0 items-center gap-2.5">
-                                    <div
-                                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary sm:h-9 sm:w-9 sm:text-sm"
-                                        aria-hidden="true"
-                                    >
-                                        {student.user.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-1.5">
-                                            <p className="truncate text-sm font-medium text-text">
-                                                {student.user.name}
-                                            </p>
-                                            {student.is_class_leader && (
-                                                <Badge variant="success" className="px-1.5 py-0 text-[10px]">
-                                                    <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
-                                                    Ketua
-                                                </Badge>
-                                            )}
-                                            {student.is_class_secretary && (
-                                                <Badge variant="primary" className="px-1.5 py-0 text-[10px]">
-                                                    Sekretaris
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <p className="truncate text-xs tabular-nums text-text-muted">
-                                            NIS {student.nis}
-                                        </p>
-                                    </div>
+                                {identity}
+
+                                <div className="mt-2 grid grid-cols-2 gap-1.5 sm:mt-0 sm:w-[200px] sm:shrink-0">
+                                    {attendanceStatusOptions.map((option) => {
+                                        const Icon = option.icon;
+                                        const active = status === option.value;
+
+                                        return (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => onToggle?.(student.id, option.value)}
+                                                aria-pressed={active}
+                                                className={cn(
+                                                    'flex items-center justify-center gap-1 rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
+                                                    active
+                                                        ? option.activeClass
+                                                        : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text',
+                                                )}
+                                            >
+                                                <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                                <span className="truncate">{option.label}</span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
 
-                                {readOnly ? (
-                                    <Badge variant={isAbsent ? 'neutral' : 'success'} className="mt-2 sm:mt-0">
-                                        {isAbsent ? (
-                                            <Info className="mr-1 h-3 w-3" aria-hidden="true" />
-                                        ) : (
-                                            <Check className="mr-1 h-3 w-3" aria-hidden="true" />
-                                        )}
-                                        {isAbsent ? 'Tidak masuk' : 'Masuk'}
-                                    </Badge>
-                                ) : (
-                                    <div className="mt-2 grid grid-cols-2 gap-1.5 sm:mt-0 sm:w-[200px] sm:shrink-0">
-                                        {attendanceStatusOptions.map((option) => {
-                                            const Icon = option.icon;
-                                            const active = status === option.value;
-
-                                            return (
-                                                <button
-                                                    key={option.value}
-                                                    type="button"
-                                                    onClick={() => onToggle?.(student.id, option.value)}
-                                                    aria-pressed={active}
-                                                    className={cn(
-                                                        'flex items-center justify-center gap-1 rounded-md border px-1.5 py-1.5 text-[11px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
-                                                        active
-                                                            ? option.activeClass
-                                                            : 'border-border bg-white text-text-secondary hover:bg-bg-tertiary hover:text-text',
-                                                    )}
-                                                >
-                                                    <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                                    <span className="truncate">{option.label}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                {isAbsent && (
+                                    <Input
+                                        value={notes[student.id] ?? ''}
+                                        onChange={(event) => onNoteChange?.(student.id, event.target.value)}
+                                        placeholder="Alasan, mis. izin/sakit"
+                                        className="mt-2 h-8 w-full text-xs sm:mt-0 sm:max-w-[200px]"
+                                        aria-label={`Catatan ketidakhadiran ${student.user.name}`}
+                                    />
                                 )}
-
-                                {isAbsent &&
-                                    (readOnly
-                                        ? notes[student.id] && (
-                                              <p className="mt-2 w-full text-xs text-text-secondary sm:mt-0 sm:max-w-[200px]">
-                                                  Catatan: {notes[student.id]}
-                                              </p>
-                                          )
-                                        : (
-                                              <Input
-                                                  value={notes[student.id] ?? ''}
-                                                  onChange={(event) =>
-                                                      onNoteChange?.(student.id, event.target.value)
-                                                  }
-                                                  placeholder="Alasan, mis. izin/sakit"
-                                                  className="mt-2 h-8 w-full text-xs sm:mt-0 sm:max-w-[200px]"
-                                                  aria-label={`Catatan ketidakhadiran ${student.user.name}`}
-                                              />
-                                          ))}
                             </div>
                         );
                     })}
@@ -587,6 +671,8 @@ function StudentStatusList({ students = [], attendance = null }) {
                 </div>
             </div>
 
+            <StatusLegend items={studentStatusLegend} className="mb-3" />
+
             <p className="mb-2 text-xs tabular-nums text-text-muted" role="status">
                 Menampilkan {filtered.length} dari {students.length} siswa
             </p>
@@ -598,50 +684,61 @@ function StudentStatusList({ students = [], attendance = null }) {
                 </div>
             ) : (
                 <div className="space-y-2">
-                    {filtered.map((student) => (
-                        <div
-                            key={student.id}
-                            className="flex min-w-0 items-center gap-2.5 rounded-lg border border-border bg-white p-2.5 sm:p-3"
-                        >
+                    {filtered.map((student) => {
+                        const meta =
+                            studentStatusMeta[student.collection_records?.[0]?.status] ?? {
+                                label: 'Belum didata',
+                                variant: 'primary',
+                                icon: Info,
+                            };
+
+                        return (
                             <div
-                                className="avatar avatar-md flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary sm:h-9 sm:w-9 sm:text-sm"
-                                aria-hidden="true"
+                                key={student.id}
+                                className="flex min-w-0 items-center gap-2.5 rounded-lg border border-border bg-white p-2.5 sm:p-3"
                             >
-                                {student.user.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    <p className="truncate text-sm font-medium text-text">{student.user.name}</p>
-                                    {student.is_class_leader && (
-                                        <Badge variant="success" className="px-1.5 py-0 text-[10px]">
-                                            <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
-                                            Ketua
-                                        </Badge>
-                                    )}
-                                    {student.is_class_secretary && (
-                                        <Badge variant="primary" className="px-1.5 py-0 text-[10px]">
-                                            Sekretaris
-                                        </Badge>
+                                <div
+                                    className="avatar avatar-md flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-medium text-primary sm:h-9 sm:w-9 sm:text-sm"
+                                    aria-hidden="true"
+                                >
+                                    {student.user.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                        <p className="truncate text-sm font-medium text-text">{student.user.name}</p>
+                                        {student.is_class_leader && (
+                                            <Badge variant="success" className="px-1.5 py-0 text-[10px]">
+                                                <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
+                                                Ketua
+                                            </Badge>
+                                        )}
+                                        {student.is_class_secretary && (
+                                            <Badge variant="primary" className="px-1.5 py-0 text-[10px]">
+                                                Sekretaris
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <p className="truncate text-xs tabular-nums text-text-muted">NIS {student.nis}</p>
+                                    {student.collection_records?.[0]?.verification_note && (
+                                        <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
+                                            Keterangan kesiswaan: {student.collection_records[0].verification_note}
+                                        </p>
                                     )}
                                 </div>
-                                <p className="truncate text-xs tabular-nums text-text-muted">NIS {student.nis}</p>
-                                {student.collection_records?.[0]?.verification_note && (
-                                    <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
-                                        Keterangan kesiswaan: {student.collection_records[0].verification_note}
-                                    </p>
-                                )}
+                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                    {attendanceStatuses[student.id] === 'tidak_masuk' &&
+                                        student.collection_records?.[0]?.status !== 'tidak_masuk' && (
+                                            <StatusIcon label="Tidak masuk" icon={Info} tone="neutral" />
+                                        )}
+                                    <StatusIcon
+                                        label={meta.label}
+                                        icon={meta.icon}
+                                        tone={meta.variant}
+                                    />
+                                </div>
                             </div>
-                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                                {attendanceStatuses[student.id] === 'tidak_masuk' && (
-                                    <Badge variant="neutral">
-                                        <Info className="mr-1 h-3 w-3" aria-hidden="true" />
-                                        Tidak masuk
-                                    </Badge>
-                                )}
-                                <StudentStatusBadge status={student.collection_records?.[0]?.status} />
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -896,12 +993,18 @@ function VerifyDepositDialog({ target, onClose }) {
                                 <Label>Keterangan per siswa (opsional)</Label>
                                 <span className="text-xs tabular-nums text-text-muted">{students.length} siswa</span>
                             </div>
+                            <StatusLegend items={verifyStatusLegend} />
                             <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-border p-2">
                                 {students.map((student) => {
                                     const hpStatus = student.collection_records?.[0]?.status;
                                     const attendanceStatus = attendanceStatuses[student.id];
                                     const conflict =
                                         hpStatus === 'dikumpulkan' && attendanceStatus === 'tidak_masuk';
+                                    const meta = studentStatusMeta[hpStatus] ?? {
+                                        label: 'Belum didata',
+                                        variant: 'primary',
+                                        icon: Info,
+                                    };
 
                                     return (
                                         <div key={student.id} className="rounded-md bg-bg-secondary p-2">
@@ -910,21 +1013,20 @@ function VerifyDepositDialog({ target, onClose }) {
                                                     {student.user?.name}
                                                 </p>
                                                 <div className="flex flex-wrap items-center gap-1">
-                                                    <StudentStatusBadge status={hpStatus} />
-                                                    {attendanceStatus === 'tidak_masuk' && (
-                                                        <Badge variant="neutral">
-                                                            <Info className="mr-1 h-3 w-3" aria-hidden="true" />
-                                                            Tidak masuk
-                                                        </Badge>
+                                                    <StatusIcon
+                                                        label={meta.label}
+                                                        icon={meta.icon}
+                                                        tone={meta.variant}
+                                                    />
+                                                    {attendanceStatus === 'tidak_masuk' && hpStatus !== 'tidak_masuk' && (
+                                                        <StatusIcon label="Tidak masuk" icon={Info} tone="neutral" />
                                                     )}
                                                     {conflict && (
-                                                        <Badge variant="danger">
-                                                            <AlertTriangle
-                                                                className="mr-1 h-3 w-3"
-                                                                aria-hidden="true"
-                                                            />
-                                                            Perlu dicek
-                                                        </Badge>
+                                                        <StatusIcon
+                                                            label="Perlu dicek"
+                                                            icon={AlertTriangle}
+                                                            tone="danger"
+                                                        />
                                                     )}
                                                 </div>
                                             </div>
@@ -987,17 +1089,28 @@ function VerifyDepositDialog({ target, onClose }) {
 
 function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 3, flagWindowDays = 30 }) {
     const [verifyTarget, setVerifyTarget] = useState(null);
+    const feedback = useFeedback();
 
-    function releaseBox(schoolClass) {
+    async function releaseBox(schoolClass) {
         if (!schoolClass.deposit) return;
 
-        if (window.confirm(`Tandai box ${schoolClass.name} sudah diambil oleh ketua kelas?`)) {
-            router.patch(
-                route('class-deposits.release', schoolClass.deposit.id),
-                {},
-                { preserveScroll: true },
-            );
-        }
+        const confirmed = await feedback.confirm({
+            title: `Tandai box ${schoolClass.name} sudah diambil?`,
+            description:
+                'Box dianggap sudah dikembalikan ke ketua kelas. Status setoran akan ditandai selesai dan tidak bisa diubah lagi.',
+            confirmLabel: 'Tandai diambil',
+            tone: 'warning',
+        });
+
+        if (!confirmed) return;
+
+        router.patch(route('class-deposits.release', schoolClass.deposit.id), {}, {
+            preserveScroll: true,
+            onError: (errors) =>
+                feedback.error(
+                    errors.verified_count ?? 'Box gagal ditandai diambil. Coba lagi.',
+                ),
+        });
     }
 
     const pendingClasses = classes.filter((schoolClass) => schoolClass.deposit?.status === 'menunggu_verifikasi').length;
@@ -1007,7 +1120,7 @@ function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 
             <Head title="Dashboard" />
             <PageHeader title="Monitoring Setoran HP" date={date} />
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div id="ringkasan" className="mb-5 grid scroll-mt-20 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     icon={Users}
                     label="Total siswa"
@@ -1038,7 +1151,7 @@ function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 
                 />
             </div>
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div id="monitoring" className="mb-5 grid scroll-mt-20 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {classes.map((schoolClass) => (
                     <KesiswaanClassCard
                         key={schoolClass.id}
@@ -1060,7 +1173,7 @@ function KesiswaanDashboard({ classes = [], date, summary = {}, flagThreshold = 
             </div>
 
             {classes.length > 0 && (
-                <Card className="min-w-0 overflow-hidden">
+                <Card id="status-per-siswa" className="min-w-0 scroll-mt-20 overflow-hidden">
                     <div className="border-b px-4 py-3 sm:px-5">
                         <h2 className="text-sm font-semibold text-text">Detail status per siswa</h2>
                         <p className="mt-0.5 text-xs text-text-secondary">Read-only, hasil checklist ketua kelas hari ini</p>
@@ -1279,6 +1392,8 @@ function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
                                 Menampilkan {filtered.length} dari {students.length} siswa
                             </p>
 
+                            <StatusLegend items={studentStatusLegend} className="mb-1" />
+
                             <div className="space-y-2">
                                 {filtered.map((student) => {
                                     const activeStatus = statuses[student.id] ?? 'belum';
@@ -1316,9 +1431,13 @@ function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
 
                                             <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-0 sm:w-[290px] sm:shrink-0">
                                                 {attendanceStatus === 'tidak_masuk' ? (
-                                                    <div className="col-span-3 flex items-center justify-center gap-1 rounded-md border border-border bg-bg-tertiary px-2 py-1.5 text-[11px] font-medium text-text">
-                                                        <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                                        Tidak masuk (absensi)
+                                                    <div className="col-span-3 flex items-center justify-center rounded-md border border-border bg-bg-secondary px-2 py-1.5">
+                                                        <StatusIcon
+                                                            label="Tidak masuk (absensi)"
+                                                            icon={Info}
+                                                            tone="neutral"
+                                                            className="h-5 w-5"
+                                                        />
                                                     </div>
                                                 ) : (
                                                     studentStatusOptions.map((option) => {
@@ -1844,7 +1963,7 @@ function SekretarisDashboard({ user, schoolClass, attendance, attendanceLocked, 
             <Head title="Absensi Kelas" />
             <PageHeader title={`Absensi ${schoolClass.name}`} date={date} />
 
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div id="ringkasan" className="mb-4 grid scroll-mt-20 gap-3 sm:grid-cols-3">
                 <StatCard
                     icon={Users}
                     label="Total siswa"
@@ -1870,11 +1989,13 @@ function SekretarisDashboard({ user, schoolClass, attendance, attendanceLocked, 
                 />
             </div>
 
-            <AttendanceForm
-                schoolClass={schoolClass}
-                attendance={attendance}
-                attendanceLocked={attendanceLocked}
-            />
+            <div id="absensi" className="scroll-mt-20">
+                <AttendanceForm
+                    schoolClass={schoolClass}
+                    attendance={attendance}
+                    attendanceLocked={attendanceLocked}
+                />
+            </div>
         </div>
     );
 }
@@ -1906,7 +2027,7 @@ function KetuaKelasDashboard({ user, schoolClass, attendance, attendanceLocked, 
             <Head title="Setoran HP" />
             <PageHeader title={`Setoran ${schoolClass.name}`} date={date} />
 
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div id="ringkasan" className="mb-4 grid scroll-mt-20 gap-3 sm:grid-cols-3">
                 <StatCard icon={Users} label="Total siswa" value={studentsCount} tone="primary" />
                 <StatCard
                     icon={Check}
@@ -1924,13 +2045,15 @@ function KetuaKelasDashboard({ user, schoolClass, attendance, attendanceLocked, 
                 />
             </div>
 
-            <ChecklistForm
-                key={`${schoolClass.id}-${deposit?.id ?? 'new'}-${deposit?.status ?? 'new'}-${deposit?.reported_at ?? ''}`}
-                schoolClass={schoolClass}
-                attendance={attendance}
-                attendanceLocked={attendanceLocked}
-                flagWindowDays={flagWindowDays}
-            />
+            <div id="checklist-setoran" className="scroll-mt-20">
+                <ChecklistForm
+                    key={`${schoolClass.id}-${deposit?.id ?? 'new'}-${deposit?.status ?? 'new'}-${deposit?.reported_at ?? ''}`}
+                    schoolClass={schoolClass}
+                    attendance={attendance}
+                    attendanceLocked={attendanceLocked}
+                    flagWindowDays={flagWindowDays}
+                />
+            </div>
         </div>
     );
 }
@@ -1966,7 +2089,7 @@ function WaliKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
             <Head title="Dashboard" />
             <PageHeader title={schoolClass.name} date={date} />
 
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div id="ringkasan" className="mb-4 grid scroll-mt-20 gap-3 sm:grid-cols-3">
                 <StatCard icon={Users} label="Total siswa" value={schoolClass.students_count ?? students.length} tone="primary" />
                 <StatCard icon={Check} label="Setor" value={deposit ? collected : '-'} hint={`${progress}% dari jumlah siswa`} tone="success" />
                 <StatCard
@@ -1986,14 +2109,16 @@ function WaliKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
 
             <AttentionNotice schoolClass={schoolClass} flagWindowDays={flagWindowDays} />
 
-            <WaliKelasAttendanceCard
-                schoolClass={schoolClass}
-                attendance={schoolClass.attendance}
-                attendanceLocked={schoolClass.attendance_locked}
-                students={students}
-            />
+            <div id="absensi" className="scroll-mt-20">
+                <WaliKelasAttendanceCard
+                    schoolClass={schoolClass}
+                    attendance={schoolClass.attendance}
+                    attendanceLocked={schoolClass.attendance_locked}
+                    students={students}
+                />
+            </div>
 
-            <Card className="mb-4 min-w-0 overflow-hidden">
+            <Card id="ringkasan-setoran" className="mb-4 min-w-0 scroll-mt-20 overflow-hidden">
                 <div className="border-b px-4 py-3 sm:px-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -2023,7 +2148,7 @@ function WaliKelasDashboard({ user, schoolClass, date, flagWindowDays = 30 }) {
                 </div>
             </Card>
 
-            <Card className="min-w-0 overflow-hidden">
+            <Card id="status-per-siswa" className="min-w-0 scroll-mt-20 overflow-hidden">
                 <div className="border-b px-4 py-3 sm:px-5">
                     <h2 className="text-sm font-semibold text-text">Status per siswa</h2>
                 </div>
@@ -2045,7 +2170,7 @@ function SiswaDashboard({ user, schoolClass, deposit, ownStatus, date }) {
             <PageHeader title={`Halo, ${user.name}`} subtitle="Status pengumpulan HP hari ini" date={date} />
 
             <div className="grid gap-3 sm:grid-cols-2">
-                <Card className="min-w-0 overflow-hidden">
+                <Card id="status-hp" className="min-w-0 scroll-mt-20 overflow-hidden">
                     <div className="p-4 sm:p-5">
                         <div className="flex items-center gap-2.5">
                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-light text-primary">
@@ -2076,7 +2201,7 @@ function SiswaDashboard({ user, schoolClass, deposit, ownStatus, date }) {
                     </div>
                 </Card>
 
-                <Card className="min-w-0 overflow-hidden">
+                <Card id="setoran-kelas" className="min-w-0 scroll-mt-20 overflow-hidden">
                     <div className="p-4 sm:p-5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="min-w-0">
@@ -2117,6 +2242,26 @@ export default function Dashboard({
     flagWindowDays = 30,
 }) {
     const user = usePage().props.auth.user;
+
+    useEffect(() => {
+        const scrollToHash = () => {
+            const id = window.location.hash.replace('#', '');
+            if (!id) return;
+
+            const target = document.getElementById(id);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+
+        const timer = window.setTimeout(scrollToHash, 80);
+        window.addEventListener('hashchange', scrollToHash);
+
+        return () => {
+            window.clearTimeout(timer);
+            window.removeEventListener('hashchange', scrollToHash);
+        };
+    }, [role]);
 
     let content;
 

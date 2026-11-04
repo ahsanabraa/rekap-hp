@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,11 +15,33 @@ class SchoolClass extends Model
     protected $table = 'classes';
 
     protected $fillable = [
-        'name',
         'grade',
-        'group_name',
+        'jurusan',
+        'rombel',
         'homeroom_user_id',
     ];
+
+    protected $casts = [
+        'rombel' => 'integer',
+    ];
+
+    protected static function booted(): void
+    {
+        // Nama kelas selalu mengikuti tingkat + jurusan + rombel, contoh: 11 RPL 4.
+        static::saving(function (SchoolClass $schoolClass): void {
+            $schoolClass->name = trim(
+                "{$schoolClass->grade} {$schoolClass->jurusan} {$schoolClass->rombel}",
+            );
+        });
+    }
+
+    public function scopeOrdered(Builder $query): Builder
+    {
+        return $query
+            ->orderBy('grade')
+            ->orderBy('jurusan')
+            ->orderBy('rombel');
+    }
 
     public function homeroom(): BelongsTo
     {

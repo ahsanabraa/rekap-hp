@@ -9,6 +9,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import { Separator } from '@/Components/ui/separator';
 import AppLogo from '@/Components/AppLogo';
+import { useFeedback } from '@/Components/FeedbackProvider';
 import { cn } from '@/lib/utils';
 import {
     LayoutDashboard,
@@ -19,24 +20,95 @@ import {
     Menu,
     X,
     ChevronDown,
+    ClipboardCheck,
+    ClipboardList,
+    PackageCheck,
+    Smartphone,
+    GraduationCap,
 } from 'lucide-react';
 
-const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['siswa', 'wali_kelas', 'kesiswaan'] },
-    { name: 'Kelas', href: '/classes', icon: BookOpen, roles: ['kesiswaan'] },
-    { name: 'Siswa', href: '/students', icon: Users, roles: ['kesiswaan'] },
-];
+const navigationByRole = {
+    kesiswaan: [
+        { name: 'Ringkasan', href: '/dashboard#ringkasan', section: 'ringkasan', icon: LayoutDashboard },
+        { name: 'Monitoring kelas', href: '/dashboard#monitoring', section: 'monitoring', icon: ClipboardList },
+        { name: 'Status per siswa', href: '/dashboard#status-per-siswa', section: 'status-per-siswa', icon: Users },
+        { name: 'Kelas', href: '/classes', icon: BookOpen },
+        { name: 'Siswa', href: '/students', icon: GraduationCap },
+    ],
+    wali_kelas: [
+        { name: 'Absensi', href: '/dashboard#absensi', section: 'absensi', icon: ClipboardCheck },
+        { name: 'Ringkasan setoran', href: '/dashboard#ringkasan-setoran', section: 'ringkasan-setoran', icon: PackageCheck },
+        { name: 'Status per siswa', href: '/dashboard#status-per-siswa', section: 'status-per-siswa', icon: Users },
+    ],
+    ketua_kelas: [
+        { name: 'Ringkasan setoran', href: '/dashboard#ringkasan', section: 'ringkasan', icon: PackageCheck },
+        { name: 'Checklist setoran', href: '/dashboard#checklist-setoran', section: 'checklist-setoran', icon: ClipboardCheck },
+    ],
+    sekretaris: [
+        { name: 'Ringkasan absensi', href: '/dashboard#ringkasan', section: 'ringkasan', icon: ClipboardList },
+        { name: 'Isi absensi', href: '/dashboard#absensi', section: 'absensi', icon: ClipboardCheck },
+    ],
+    siswa: [
+        { name: 'Status HP saya', href: '/dashboard#status-hp', section: 'status-hp', icon: Smartphone },
+        { name: 'Setoran kelas', href: '/dashboard#setoran-kelas', section: 'setoran-kelas', icon: PackageCheck },
+    ],
+};
+
+function NavList({ items, isActive, onNavigate, onClose, className }) {
+    return (
+        <nav className={className} aria-label="Navigasi utama">
+            {items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item);
+
+                return (
+                    <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={(event) => onNavigate(event, item, onClose)}
+                        className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            active
+                                ? 'bg-primary text-white'
+                                : 'text-text-secondary hover:bg-bg-tertiary hover:text-text',
+                        )}
+                        aria-current={active ? 'page' : undefined}
+                    >
+                        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                        {item.name}
+                    </Link>
+                );
+            })}
+        </nav>
+    );
+}
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
-    const isClassLeader = usePage().props.isClassLeader ?? false;
-    const isClassSecretary = usePage().props.isClassSecretary ?? false;
+    const page = usePage();
+    const user = page.props.auth.user;
+    const isClassLeader = page.props.isClassLeader ?? false;
+    const isClassSecretary = page.props.isClassSecretary ?? false;
     const classRole =
-        usePage().props.classRole ??
+        page.props.classRole ??
         (isClassLeader ? 'ketua_kelas' : isClassSecretary ? 'sekretaris' : null);
-    const flash = usePage().props.flash ?? {};
+    const flashSuccess = page.props.flash?.success;
+    const flashError = page.props.flash?.error;
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
+    const [activeHash, setActiveHash] = useState('');
+    const { success: notifySuccess, error: notifyError } = useFeedback();
+
+    useEffect(() => {
+        if (flashSuccess) {
+            notifySuccess(flashSuccess);
+        }
+    }, [flashSuccess, notifySuccess]);
+
+    useEffect(() => {
+        if (flashError) {
+            notifyError(flashError);
+        }
+    }, [flashError, notifyError]);
 
     useEffect(() => {
         const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -44,7 +116,59 @@ export default function AuthenticatedLayout({ header, children }) {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const userNavItems = navigation.filter((item) => item.roles.includes(user.role));
+    useEffect(() => {
+        const syncHash = () => setActiveHash(window.location.hash);
+        syncHash();
+        window.addEventListener('hashchange', syncHash);
+        return () => window.removeEventListener('hashchange', syncHash);
+    }, [page.url]);
+
+    const navRole =
+        user.role === 'siswa'
+            ? classRole === 'ketua_kelas'
+                ? 'ketua_kelas'
+                : classRole === 'sekretaris'
+                  ? 'sekretaris'
+                  : 'siswa'
+            : user.role;
+    const userNavItems = navigationByRole[navRole] ?? navigationByRole.siswa;
+    const firstSection = userNavItems.find((item) => item.section)?.section;
+    const currentPath = page.url.split('#')[0].split('?')[0];
+
+    const isNavItemActive = (item) => {
+        if (item.section) {
+            if (currentPath !== '/dashboard') return false;
+            const hash = activeHash && activeHash !== '#' ? activeHash : `#${firstSection}`;
+            return hash === `#${item.section}`;
+        }
+
+        return currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+    };
+
+    const handleNavigate = (event, item, onClose) => {
+        if (!item.section) {
+            onClose?.();
+            return;
+        }
+
+        event.preventDefault();
+        onClose?.();
+
+        const hash = `#${item.section}`;
+
+        if (window.location.pathname === '/dashboard') {
+            const target = document.getElementById(item.section);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                window.history.replaceState(window.history.state, '', `/dashboard${hash}`);
+                setActiveHash(hash);
+                return;
+            }
+        }
+
+        router.visit(`/dashboard${hash}`);
+    };
+
     const isKesiswaan = user.role === 'kesiswaan';
     const isWaliKelas = user.role === 'wali_kelas';
     const isSiswa = user.role === 'siswa';
@@ -52,7 +176,7 @@ export default function AuthenticatedLayout({ header, children }) {
     return (
         <div className="min-h-screen bg-bg-secondary">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetContent side="left" className="w-72 p-0 max-h-screen">
+                <SheetContent side="left" className="w-72 p-0 max-h-screen" showCloseButton={false}>
                     <div className="flex h-full flex-col">
                         <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
                             <Link href="/dashboard" className="flex items-center gap-2" aria-label="RekapHP Home">
@@ -62,27 +186,13 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <X className="h-5 w-5" />
                             </Button>
                         </div>
-                        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-1" aria-label="Navigasi utama">
-                            {userNavItems.map((item) => {
-                                const isActive = window.location.pathname === item.href || window.location.pathname.startsWith(item.href + '/');
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        className={cn(
-                                            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                                            isActive
-                                                ? 'bg-primary text-white'
-                                                : 'text-text-secondary hover:bg-bg-tertiary hover:text-text'
-                                        )}
-                                        aria-current={isActive ? 'page' : undefined}
-                                    >
-                                        <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
+                        <NavList
+                            items={userNavItems}
+                            isActive={isNavItemActive}
+                            onNavigate={handleNavigate}
+                            onClose={() => setMobileMenuOpen(false)}
+                            className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+                        />
                         <div className="border-t p-3">
                             <div className="flex items-center gap-3 px-3 py-2">
                                 <Avatar className="h-9 w-9">
@@ -128,27 +238,12 @@ export default function AuthenticatedLayout({ header, children }) {
                     </Link>
                 </div>
                 <div className="flex flex-1 flex-col overflow-y-auto">
-                    <nav className="flex-1 px-3 py-3 space-y-1" aria-label="Navigasi utama">
-                        {userNavItems.map((item) => {
-                            const isActive = window.location.pathname === item.href || window.location.pathname.startsWith(item.href + '/');
-                            return (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={cn(
-                                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                                        isActive
-                                            ? 'bg-primary text-white'
-                                            : 'text-text-secondary hover:bg-bg-tertiary hover:text-text'
-                                    )}
-                                    aria-current={isActive ? 'page' : undefined}
-                                >
-                                    <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                                    {item.name}
-                                </Link>
-                            );
-                        })}
-                    </nav>
+                    <NavList
+                        items={userNavItems}
+                        isActive={isNavItemActive}
+                        onNavigate={handleNavigate}
+                        className="flex-1 px-3 py-3 space-y-1"
+                    />
                     <div className="border-t p-3">
                         <div className="flex items-center gap-3 px-3 py-2">
                             <Avatar className="h-9 w-9">
@@ -184,7 +279,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
             <div className="min-w-0 lg:pl-[260px]">
                 <header className={cn(
-                    'sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-white/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:gap-4 sm:px-4 lg:px-6',
+                    'sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 border-b bg-white/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-white/80 sm:gap-4 sm:px-4 lg:px-6',
                     isScrolled && 'shadow-sm'
                 )}>
                     <Button
@@ -284,14 +379,6 @@ export default function AuthenticatedLayout({ header, children }) {
                 {header && (
                     <div className="border-b px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
                         {header}
-                    </div>
-                )}
-
-                {flash.success && (
-                    <div className="mx-auto mt-3 max-w-7xl px-3 sm:mt-4 sm:px-4 lg:px-6">
-                        <div className="break-words rounded-lg border border-success-light bg-success-light px-3 py-2.5 text-sm font-medium text-success sm:px-4 sm:py-3">
-                            {flash.success}
-                        </div>
                     </div>
                 )}
 

@@ -1,49 +1,53 @@
 import { cn } from '@/lib/utils';
 
-function LogoMark({ className }) {
+export function AppLogoMark({ className }) {
     return (
-        <svg viewBox="0 0 32 32" fill="none" aria-hidden="true" className={className}>
-            <rect x="10.5" y="5.5" width="11" height="21" rx="3" stroke="hsl(var(--color-text))" strokeWidth="1.8" />
-            <line x1="14" y1="8.5" x2="18" y2="8.5" stroke="hsl(var(--color-text))" strokeWidth="1.4" strokeLinecap="round" opacity="0.6" />
-            <path
-                d="M13.2 15.4l2.6 2.6 4.2-4.8"
-                stroke="hsl(var(--color-primary))"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <line x1="14.2" y1="19.6" x2="17.8" y2="19.6" stroke="hsl(var(--color-text))" strokeWidth="1.4" strokeLinecap="round" opacity="0.35" />
-            <line x1="14.2" y1="22" x2="16.5" y2="22" stroke="hsl(var(--color-text))" strokeWidth="1.4" strokeLinecap="round" opacity="0.2" />
-        </svg>
+        <span
+            aria-hidden="true"
+            className={cn(
+                'relative inline-flex select-none items-center justify-center overflow-hidden rounded-[10px] bg-primary font-bold leading-none tracking-[-0.03em] text-white',
+                className
+            )}
+        >
+            <span className="relative -translate-y-[0.06em]">R</span>
+            <span className="absolute bottom-[0.35em] left-1/2 h-[0.14em] w-[0.7em] -translate-x-1/2 rounded-full bg-white/50" />
+        </span>
     );
 }
 
-export function AppLogoMark({ className }) {
-    return <LogoMark className={className} />;
-}
-
 export default function AppLogo({ size = 'md', showTagline = false, className }) {
-    const markSize = {
-        sm: 'h-8 w-8',
-        md: 'h-9 w-9',
-        lg: 'h-11 w-11',
-    }[size];
-
-    const titleSize = {
-        sm: 'text-[16px]',
-        md: 'text-[17px]',
-        lg: 'text-[20px]',
+    const sizes = {
+        sm: {
+            mark: 'h-8 w-8 text-[15px]',
+            title: 'text-[16px]',
+            tagline: 'text-[9px] tracking-[0.12em]',
+        },
+        md: {
+            mark: 'h-9 w-9 text-[17px]',
+            title: 'text-[17px]',
+            tagline: 'text-[10px] tracking-[0.14em]',
+        },
+        lg: {
+            mark: 'h-11 w-11 text-[20px]',
+            title: 'text-[20px]',
+            tagline: 'text-[10px] tracking-[0.14em]',
+        },
     }[size];
 
     return (
         <span className={cn('inline-flex items-center gap-2.5', className)}>
-            <LogoMark className={cn(markSize, 'shrink-0')} />
+            <AppLogoMark className={cn(sizes.mark, 'shrink-0')} />
             <span className="flex min-w-0 flex-col justify-center leading-none">
-                <span className={cn('font-bold tracking-[-0.02em] text-text', titleSize)}>
+                <span className={cn('font-bold tracking-[-0.02em] text-text', sizes.title)}>
                     Rekap<span className="text-primary">HP</span>
                 </span>
                 {showTagline ? (
-                    <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                    <span
+                        className={cn(
+                            'mt-1 font-semibold uppercase text-text-muted',
+                            sizes.tagline
+                        )}
+                    >
                         Pendataan HP
                     </span>
                 ) : null}

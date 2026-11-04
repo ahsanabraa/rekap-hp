@@ -20,9 +20,7 @@ class StudentController extends Controller
             'students' => Student::with(['user:id,name,username', 'schoolClass:id,name'])
                 ->orderBy('nis')
                 ->get(),
-            'classes' => SchoolClass::orderBy('grade')
-                ->orderBy('group_name')
-                ->get(['id', 'name']),
+            'classes' => SchoolClass::ordered()->get(['id', 'name']),
         ]);
     }
 

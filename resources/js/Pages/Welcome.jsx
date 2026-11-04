@@ -27,7 +27,7 @@ export default function Welcome({ auth }) {
                     <Card className="w-full max-w-md">
                         <div className="p-6 text-center">
                             <div className="flex justify-center">
-                                <AppLogoMark className="h-12 w-12" />
+                                <AppLogoMark className="h-12 w-12 rounded-[14px] text-[22px]" />
                             </div>
                             <h1 className="mt-4 text-xl font-semibold text-text">Selamat Datang</h1>
                             <p className="mt-2 text-sm text-text-secondary">Kamu sudah login sebagai <strong>{auth.user.name}</strong></p>

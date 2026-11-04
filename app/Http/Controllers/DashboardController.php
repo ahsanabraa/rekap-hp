@@ -50,8 +50,7 @@ class DashboardController extends Controller
                     ]),
             ])
             ->withCount('students')
-            ->orderBy('grade')
-            ->orderBy('group_name')
+            ->ordered()
             ->get();
 
         $shortageCounts = $this->shortageCounts();

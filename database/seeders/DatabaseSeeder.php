@@ -34,9 +34,8 @@ class DatabaseSeeder extends Seeder
         );
 
         $schoolClass = SchoolClass::updateOrCreate(
-            ['grade' => '10', 'group_name' => 'A'],
+            ['grade' => '10', 'jurusan' => 'RPL', 'rombel' => 1],
             [
-                'name' => 'Kelas 10 A',
                 'homeroom_user_id' => $waliKelas->id,
             ],
         );
