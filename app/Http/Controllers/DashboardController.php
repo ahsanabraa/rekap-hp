@@ -154,18 +154,29 @@ class DashboardController extends Controller
                 'schoolClass' => null,
                 'deposit' => null,
                 'ownStatus' => null,
+                'activeLoan' => null,
+                'history' => [],
+                'historySummary' => null,
                 'student' => null,
                 'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
                 'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
             ]);
         }
 
-        $ownStatus = CollectionRecord::query()
+        $todayRecord = CollectionRecord::query()
             ->where('student_id', $student->id)
             ->whereDate('collection_date', today())
             ->whereNotNull('class_deposit_id')
+            ->with('phoneLoan:id,student_id,usage_description,starts_at,ends_at,teacher_name,returned_at')
             ->latest('id')
-            ->value('status');
+            ->first();
+
+        $ownStatus = $todayRecord?->status;
+        $activeLoan = $todayRecord?->phoneLoan;
+
+        if ($activeLoan?->returned_at) {
+            $activeLoan = null;
+        }
 
         $deposit = ClassDeposit::query()
             ->where('class_id', $student->class_id)
@@ -242,6 +253,32 @@ class DashboardController extends Controller
             ]);
         }
 
+        $historyStart = today()->subDays(ClassDeposit::ATTENTION_WINDOW_DAYS - 1);
+
+        $history = CollectionRecord::query()
+            ->where('student_id', $student->id)
+            ->whereNotNull('class_deposit_id')
+            ->whereDate('collection_date', '>=', $historyStart)
+            ->latest('collection_date')
+            ->get(['collection_date', 'status', 'notes'])
+            ->map(fn (CollectionRecord $record) => [
+                'date' => $record->collection_date->toDateString(),
+                'status' => $record->status,
+                'notes' => $record->notes,
+            ]);
+
+        $historySummary = [
+            'deposit_days' => ClassDeposit::query()
+                ->where('class_id', $student->class_id)
+                ->whereDate('deposit_date', '>=', $historyStart)
+                ->distinct()
+                ->count('deposit_date'),
+            'dikumpulkan' => $history->where('status', 'dikumpulkan')->count(),
+            'tidak_mengumpulkan' => $history->where('status', 'tidak_mengumpulkan')->count(),
+            'tidak_masuk' => $history->where('status', 'tidak_masuk')->count(),
+            'sedang_dipinjam' => $history->where('status', 'sedang_dipinjam')->count(),
+        ];
+
         return Inertia::render('Dashboard', [
             'role' => 'siswa',
             'date' => today()->toDateString(),
@@ -249,6 +286,9 @@ class DashboardController extends Controller
             'deposit' => $deposit,
             'attendance' => $attendance,
             'ownStatus' => $ownStatus,
+            'activeLoan' => $activeLoan,
+            'history' => $history,
+            'historySummary' => $historySummary,
             'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_vice_leader', 'is_class_secretary']),
             'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
             'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,

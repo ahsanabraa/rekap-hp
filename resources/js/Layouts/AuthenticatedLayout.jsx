@@ -52,6 +52,7 @@ const navigationByRole = {
     siswa: [
         { name: 'Status HP saya', href: '/dashboard#status-hp', section: 'status-hp', icon: Smartphone },
         { name: 'Setoran kelas', href: '/dashboard#setoran-kelas', section: 'setoran-kelas', icon: PackageCheck },
+        { name: 'Riwayat saya', href: '/dashboard#riwayat-saya', section: 'riwayat-saya', icon: ClipboardList },
     ],
 };
 
