@@ -57,9 +57,9 @@ class StudentController extends Controller
             'is_class_leader' => ['required', 'boolean'],
         ]);
 
-        if ($validated['is_class_leader'] && $student->is_class_secretary) {
+        if ($validated['is_class_leader'] && ($student->is_class_secretary || $student->is_class_vice_leader)) {
             throw ValidationException::withMessages([
-                'is_class_leader' => $student->user->name.' sudah menjadi sekretaris kelas. Pilih siswa lain.',
+                'is_class_leader' => $student->user->name.' sudah menjadi sekretaris atau wakil ketua kelas. Pilih siswa lain.',
             ]);
         }
 
@@ -81,14 +81,13 @@ class StudentController extends Controller
     }
 
     public function setClassSecretary(Request $request, Student $student): RedirectResponse
-    {
-        $validated = $request->validate([
+    {        $validated = $request->validate([
             'is_class_secretary' => ['required', 'boolean'],
         ]);
 
-        if ($validated['is_class_secretary'] && $student->is_class_leader) {
+        if ($validated['is_class_secretary'] && ($student->is_class_leader || $student->is_class_vice_leader)) {
             throw ValidationException::withMessages([
-                'is_class_secretary' => $student->user->name.' sudah menjadi ketua kelas. Pilih siswa lain.',
+                'is_class_secretary' => $student->user->name.' sudah menjadi ketua atau wakil ketua kelas. Pilih siswa lain.',
             ]);
         }
 
@@ -105,6 +104,35 @@ class StudentController extends Controller
         $message = $validated['is_class_secretary']
             ? $student->user->name.' sekarang menjadi sekretaris kelas.'
             : 'Status sekretaris kelas '.$student->user->name.' dicabut.';
+
+        return back()->with('success', $message);
+    }
+
+    public function setClassViceLeader(Request $request, Student $student): RedirectResponse
+    {
+        $validated = $request->validate([
+            'is_class_vice_leader' => ['required', 'boolean'],
+        ]);
+
+        if ($validated['is_class_vice_leader'] && ($student->is_class_leader || $student->is_class_secretary)) {
+            throw ValidationException::withMessages([
+                'is_class_vice_leader' => $student->user->name.' sudah menjadi ketua atau sekretaris kelas. Pilih siswa lain.',
+            ]);
+        }
+
+        DB::transaction(function () use ($student, $validated): void {
+            if ($validated['is_class_vice_leader']) {
+                Student::query()
+                    ->where('class_id', $student->class_id)
+                    ->update(['is_class_vice_leader' => false]);
+            }
+
+            $student->update(['is_class_vice_leader' => (bool) $validated['is_class_vice_leader']]);
+        });
+
+        $message = $validated['is_class_vice_leader']
+            ? $student->user->name.' sekarang menjadi wakil ketua kelas.'
+            : 'Status wakil ketua kelas '.$student->user->name.' dicabut.';
 
         return back()->with('success', $message);
     }

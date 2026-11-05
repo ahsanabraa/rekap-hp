@@ -32,6 +32,7 @@ const navigationByRole = {
         { name: 'Ringkasan', href: '/dashboard#ringkasan', section: 'ringkasan', icon: LayoutDashboard },
         { name: 'Monitoring kelas', href: '/dashboard#monitoring', section: 'monitoring', icon: ClipboardList },
         { name: 'Status per siswa', href: '/dashboard#status-per-siswa', section: 'status-per-siswa', icon: Users },
+        { name: 'Peminjaman', href: '/loans', icon: Smartphone },
         { name: 'Kelas', href: '/classes', icon: BookOpen },
         { name: 'Siswa', href: '/students', icon: GraduationCap },
     ],
@@ -341,6 +342,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             </DropdownMenuItem>
                             {isKesiswaan && (
                                 <>
+                                    <DropdownMenuItem asChild>
+                                        <Link href="/loans" className="flex cursor-pointer items-center gap-2">
+                                            <Smartphone className="h-4 w-4" aria-hidden="true" />
+                                            Peminjaman
+                                        </Link>
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem asChild>
                                         <Link href="/classes" className="flex cursor-pointer items-center gap-2">
                                             <BookOpen className="h-4 w-4" aria-hidden="true" />

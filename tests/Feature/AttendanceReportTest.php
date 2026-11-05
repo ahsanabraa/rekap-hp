@@ -234,17 +234,13 @@ class AttendanceReportTest extends TestCase
                 ['student_id' => $students[1]->id, 'status' => 'dikumpulkan'],
                 ['student_id' => $students[2]->id, 'status' => 'dikumpulkan'],
             ],
-        ])->assertSessionHasErrors('entries');
-
-        $this->actingAs($leaderUser)->post(route('class-deposits.store'), [
-            'entries' => [
-                ['student_id' => $students[0]->id, 'status' => 'dikumpulkan'],
-                ['student_id' => $students[1]->id, 'status' => 'dikumpulkan'],
-                ['student_id' => $students[2]->id, 'status' => 'tidak_masuk'],
-            ],
         ])->assertSessionHasNoErrors();
 
         $this->assertSame(2, ClassDeposit::firstOrFail()->reported_count);
+        $this->assertDatabaseHas('collection_records', [
+            'student_id' => $students[2]->id,
+            'status' => 'tidak_masuk',
+        ]);
     }
 
     public function test_verified_presence_blocks_not_present_checklist_status(): void

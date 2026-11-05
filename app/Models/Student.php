@@ -16,6 +16,7 @@ class Student extends Model
         'class_id',
         'nis',
         'is_class_leader',
+        'is_class_vice_leader',
         'is_class_secretary',
     ];
 
@@ -23,6 +24,7 @@ class Student extends Model
     {
         return [
             'is_class_leader' => 'boolean',
+            'is_class_vice_leader' => 'boolean',
             'is_class_secretary' => 'boolean',
         ];
     }

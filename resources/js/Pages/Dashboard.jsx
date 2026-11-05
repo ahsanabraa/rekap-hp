@@ -612,6 +612,7 @@ function StudentStatusList({ students = [], attendance = null }) {
             dikumpulkan: 0,
             tidak_mengumpulkan: 0,
             tidak_masuk: 0,
+            sedang_dipinjam: 0,
             belum: 0,
         };
 
@@ -663,6 +664,11 @@ function StudentStatusList({ students = [], attendance = null }) {
                     <span className="rounded-full bg-bg-tertiary px-2.5 py-1 font-medium text-text-secondary">
                         {counts.tidak_masuk} tidak masuk
                     </span>
+                    {counts.sedang_dipinjam > 0 && (
+                        <span className="rounded-full bg-warning-light px-2.5 py-1 font-medium text-warning">
+                            {counts.sedang_dipinjam} dipinjam
+                        </span>
+                    )}
                     {counts.belum > 0 && (
                         <span className="rounded-full bg-warning-light px-2.5 py-1 font-medium text-warning">
                             {counts.belum} belum
@@ -1223,6 +1229,11 @@ function buildInitialStatuses(students, attendanceStatuses = {}) {
 
             const status = student.collection_records?.[0]?.status;
 
+            // HP yang sedang dipinjam tetap dihitung sudah disetor saat checklist pagi.
+            if (status === 'sedang_dipinjam') {
+                return [student.id, 'dikumpulkan'];
+            }
+
             return [student.id, allowed.has(status) ? status : 'belum'];
         }),
     );
@@ -1243,15 +1254,32 @@ function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
     const attendanceStatuses = useMemo(
         () =>
             Object.fromEntries(
-                (verifiedAttendance?.records ?? []).map((record) => [record.student_id, record.status]),
+                (attendance?.records ?? []).map((record) => [record.student_id, record.status]),
             ),
-        [verifiedAttendance],
+        [attendance],
     );
     const [editing, setEditing] = useState(!deposit);
     const [statuses, setStatuses] = useState(() => buildInitialStatuses(students, attendanceStatuses));
     const [query, setQuery] = useState('');
     const [processing, setProcessing] = useState(false);
     const errors = usePage().props.errors ?? {};
+
+    // Absensi bisa masuk setelah checklist dibuka; siswa yang tidak masuk langsung ditandai.
+    useEffect(() => {
+        setStatuses((current) => {
+            const next = { ...current };
+
+            Object.entries(attendanceStatuses).forEach(([studentId, status]) => {
+                if (status === 'tidak_masuk') {
+                    next[studentId] = 'tidak_masuk';
+                } else if (status === 'masuk' && next[studentId] === 'tidak_masuk') {
+                    next[studentId] = 'belum';
+                }
+            });
+
+            return next;
+        });
+    }, [attendanceStatuses]);
 
     const counts = useMemo(() => {
         const result = { dikumpulkan: 0, tidak_mengumpulkan: 0, tidak_masuk: 0, belum: 0 };
@@ -1336,9 +1364,11 @@ function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
                                 Checklist Setoran Pagi
                             </h2>
                             <p className="mt-1 text-xs text-text-secondary">
-                                {verifiedAttendance
-                                    ? 'Absensi sudah diverifikasi wali kelas. Siswa yang tidak masuk terkunci otomatis.'
-                                    : 'Tap nama siswa saat HP diserahkan. Tandai yang tidak membawa HP atau tidak masuk.'}
+                                {attendance
+                                    ? verifiedAttendance
+                                        ? 'Absensi sudah diverifikasi wali kelas. Siswa yang tidak masuk terkunci otomatis.'
+                                        : 'Absensi sudah diisi sekretaris. Siswa yang tidak masuk ditandai otomatis, menunggu verifikasi wali kelas.'
+                                    : 'Absensi belum diisi sekretaris. Tandai manual siswa yang tidak masuk.'}
                             </p>
                         </div>
                         <DepositStatusBadge deposit={deposit} />
@@ -1368,7 +1398,7 @@ function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
                     {attendance && !verifiedAttendance && (
                         <div className="flex items-start gap-2 rounded-lg bg-bg-secondary px-3 py-2.5 text-sm text-text-secondary">
                             <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                            Absensi masih menunggu verifikasi wali kelas. Status kehadiran masih bisa kamu ubah.
+                            Absensi sudah diisi sekretaris. Siswa yang tidak masuk sudah ditandai otomatis dan tidak bisa diubah.
                         </div>
                     )}
 
@@ -1420,6 +1450,12 @@ function ChecklistForm({ schoolClass, attendance, flagWindowDays }) {
                                                             <Badge variant="success" className="px-1.5 py-0 text-[10px]">
                                                                 <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
                                                                 Ketua
+                                                            </Badge>
+                                                        )}
+                                                        {student.is_class_vice_leader && (
+                                                            <Badge variant="warning" className="px-1.5 py-0 text-[10px]">
+                                                                <Crown className="mr-0.5 h-2.5 w-2.5" aria-hidden="true" />
+                                                                Wakil
                                                             </Badge>
                                                         )}
                                                     </div>
@@ -1941,7 +1977,7 @@ function WaliKelasAttendanceCard({ schoolClass, attendance, attendanceLocked = f
     );
 }
 
-function SekretarisDashboard({ user, schoolClass, attendance, attendanceLocked, date }) {
+function SekretarisDashboard({ user, schoolClass, attendance, attendanceLocked, date, checklistFallback = false, flagWindowDays = 30 }) {
     if (!schoolClass) {
         return (
             <div>
@@ -1996,6 +2032,21 @@ function SekretarisDashboard({ user, schoolClass, attendance, attendanceLocked, 
                     attendanceLocked={attendanceLocked}
                 />
             </div>
+
+            {checklistFallback && (
+                <div id="checklist-setoran" className="mt-4 scroll-mt-20">
+                    <div className="mb-3 flex items-start gap-2 rounded-lg bg-warning-light px-3 py-2.5 text-sm text-warning">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                        Kamu mengisi checklist setoran karena ketua dan wakil ketua tercatat tidak masuk.
+                    </div>
+                    <ChecklistForm
+                        key={`${schoolClass.id}-${schoolClass.deposit?.id ?? 'new'}-${schoolClass.deposit?.status ?? 'new'}-${schoolClass.deposit?.reported_at ?? ''}`}
+                        schoolClass={schoolClass}
+                        attendance={attendance}
+                        flagWindowDays={flagWindowDays}
+                    />
+                </div>
+            )}
         </div>
     );
 }
@@ -2196,7 +2247,9 @@ function SiswaDashboard({ user, schoolClass, deposit, ownStatus, date }) {
                                   ? 'Kamu tercatat tidak membawa HP hari ini.'
                                   : ownStatus === 'tidak_masuk'
                                     ? 'Kamu tercatat tidak masuk hari ini.'
-                                    : 'Ketua kelas belum mencatat status HP kamu. Hubungi ketua kelas jika sudah menyerahkan HP.'}
+                                    : ownStatus === 'sedang_dipinjam'
+                                      ? 'HP kamu sedang dipinjam. Kembalikan ke box setelah selesai digunakan.'
+                                      : 'Ketua kelas belum mencatat status HP kamu. Hubungi ketua kelas jika sudah menyerahkan HP.'}
                         </p>
                     </div>
                 </Card>
@@ -2238,6 +2291,7 @@ export default function Dashboard({
     deposit,
     attendance,
     attendanceLocked = false,
+    checklistFallback = false,
     flagThreshold = 3,
     flagWindowDays = 30,
 }) {
@@ -2284,7 +2338,7 @@ export default function Dashboard({
                 flagWindowDays={flagWindowDays}
             />
         );
-    } else if (role === 'ketua_kelas') {
+    } else if (role === 'ketua_kelas' || role === 'wakil_ketua') {
         content = (
             <KetuaKelasDashboard
                 user={user}
@@ -2303,6 +2357,8 @@ export default function Dashboard({
                 attendance={attendance}
                 attendanceLocked={attendanceLocked}
                 date={date}
+                checklistFallback={checklistFallback}
+                flagWindowDays={flagWindowDays}
             />
         );
     } else {

@@ -21,6 +21,7 @@ class CollectionRecord extends Model
         'student_id',
         'loan_request_id',
         'class_deposit_id',
+        'phone_loan_id',
         'collection_date',
         'status',
         'collected_at',
@@ -55,6 +56,11 @@ class CollectionRecord extends Model
     public function classDeposit(): BelongsTo
     {
         return $this->belongsTo(ClassDeposit::class);
+    }
+
+    public function phoneLoan(): BelongsTo
+    {
+        return $this->belongsTo(PhoneLoan::class);
     }
 
     public function recorder(): BelongsTo

@@ -7,7 +7,7 @@ import { Label } from '@/Components/ui/label';
 import { Picker } from '@/Components/ui/picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/Components/ui/table';
 import { Badge } from '@/Components/ui/badge';
-import { Users, Plus, RotateCcw, Loader2, Crown, ClipboardList } from 'lucide-react';
+import { Users, Plus, RotateCcw, Loader2, Crown, ClipboardList, UserCheck } from 'lucide-react';
 import { useFeedback } from '@/Components/FeedbackProvider';
 
 export default function Index({ students, classes }) {
@@ -87,6 +87,31 @@ export default function Index({ students, classes }) {
                 preserveScroll: true,
                 onError: (errors) =>
                     feedback.error(errors.is_class_secretary ?? 'Status sekretaris kelas gagal diperbarui.'),
+            },
+        );
+    }
+
+    async function toggleClassViceLeader(student) {
+        if (student.is_class_vice_leader) {
+            const confirmed = await feedback.confirm({
+                title: 'Cabut status wakil ketua kelas?',
+                description: `${student.user.name} tidak lagi tercatat sebagai wakil ketua kelas.`,
+                confirmLabel: 'Cabut status',
+                tone: 'danger',
+            });
+
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        router.post(
+            route('students.class-vice-leader', student.id),
+            { is_class_vice_leader: !student.is_class_vice_leader },
+            {
+                preserveScroll: true,
+                onError: (errors) =>
+                    feedback.error(errors.is_class_vice_leader ?? 'Status wakil ketua kelas gagal diperbarui.'),
             },
         );
     }
@@ -223,11 +248,13 @@ export default function Index({ students, classes }) {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => toggleClassLeader(student)}
-                                                            disabled={student.is_class_secretary}
+                                                            disabled={student.is_class_secretary || student.is_class_vice_leader}
                                                             title={
                                                                 student.is_class_secretary
                                                                     ? 'Siswa ini sudah menjadi sekretaris kelas'
-                                                                    : undefined
+                                                                    : student.is_class_vice_leader
+                                                                      ? 'Siswa ini sudah menjadi wakil ketua kelas'
+                                                                      : undefined
                                                             }
                                                             className="text-text-secondary hover:text-text"
                                                         >
@@ -256,16 +283,53 @@ export default function Index({ students, classes }) {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => toggleClassSecretary(student)}
-                                                            disabled={student.is_class_leader}
+                                                            disabled={student.is_class_leader || student.is_class_vice_leader}
                                                             title={
                                                                 student.is_class_leader
                                                                     ? 'Siswa ini sudah menjadi ketua kelas'
-                                                                    : undefined
+                                                                    : student.is_class_vice_leader
+                                                                      ? 'Siswa ini sudah menjadi wakil ketua kelas'
+                                                                      : undefined
                                                             }
                                                             className="text-text-secondary hover:text-text"
                                                         >
                                                             <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                                                             Jadikan Sekretaris
+                                                        </Button>
+                                                    )}
+
+                                                    {student.is_class_vice_leader ? (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <Badge variant="warning">
+                                                                <UserCheck className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                                Wakil Ketua
+                                                            </Badge>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => toggleClassViceLeader(student)}
+                                                                className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                            >
+                                                                Cabut
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => toggleClassViceLeader(student)}
+                                                            disabled={student.is_class_leader || student.is_class_secretary}
+                                                            title={
+                                                                student.is_class_leader
+                                                                    ? 'Siswa ini sudah menjadi ketua kelas'
+                                                                    : student.is_class_secretary
+                                                                      ? 'Siswa ini sudah menjadi sekretaris kelas'
+                                                                      : undefined
+                                                            }
+                                                            className="text-text-secondary hover:text-text"
+                                                        >
+                                                            <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                                                            Jadikan Wakil
                                                         </Button>
                                                     )}
                                                 </div>

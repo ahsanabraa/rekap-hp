@@ -5,6 +5,7 @@ use App\Http\Controllers\ClassController;
 use App\Http\Controllers\ClassDepositController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\PhoneLoanController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StudentController;
 use Illuminate\Foundation\Application;
@@ -62,11 +63,19 @@ Route::middleware(['auth', 'role:kesiswaan'])->group(function () {
 
     Route::get('/students', [StudentController::class, 'index'])->name('students.index');
     Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+
+    Route::get('/loans', [PhoneLoanController::class, 'index'])->name('loans.index');
+    Route::post('/loans', [PhoneLoanController::class, 'store'])->name('loans.store');
+    Route::patch('/loans/{phoneLoan}/return', [PhoneLoanController::class, 'markReturned'])->name('loans.return');
+
     Route::post('/students/{student}/class-leader', [StudentController::class, 'setClassLeader'])
         ->name('students.class-leader');
 
     Route::post('/students/{student}/class-secretary', [StudentController::class, 'setClassSecretary'])
         ->name('students.class-secretary');
+
+    Route::post('/students/{student}/class-vice-leader', [StudentController::class, 'setClassViceLeader'])
+        ->name('students.class-vice-leader');
 
     Route::post('/teachers/{user}/reset-password', [PasswordResetController::class, 'resetTeacher'])
         ->name('teachers.reset-password');

@@ -22,8 +22,9 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
+        // Wali kelas memakai NPK, bukan NIS seperti siswa.
         $waliKelas = User::updateOrCreate(
-            ['username' => 'budi.santoso'],
+            ['username' => '1001'],
             [
                 'name' => 'Pak Budi Santoso',
                 'role' => 'wali_kelas',

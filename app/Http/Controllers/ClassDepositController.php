@@ -6,6 +6,7 @@ use App\Models\AttendanceRecord;
 use App\Models\AttendanceReport;
 use App\Models\ClassDeposit;
 use App\Models\CollectionRecord;
+use App\Models\PhoneLoan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +18,16 @@ class ClassDepositController extends Controller
     {
         $student = $request->user()->student()->with('schoolClass')->first();
 
-        abort_unless($student && $student->is_class_leader, 403, 'Hanya ketua kelas yang dapat mengisi checklist setoran.');
-        abort_unless($student->schoolClass, 422, 'Kamu belum terdaftar di kelas.');
+        abort_unless($student?->schoolClass, 422, 'Kamu belum terdaftar di kelas.');
 
         $schoolClass = $student->schoolClass;
+
+        $canSubmit = $student->is_class_leader
+            || $student->is_class_vice_leader
+            || ($student->is_class_secretary && $schoolClass->classLeadersAbsentToday());
+
+        abort_unless($canSubmit, 403, 'Hanya ketua, wakil ketua, atau sekretaris pengganti yang dapat mengisi checklist setoran.');
+
         $studentIds = $schoolClass->students()
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
@@ -44,25 +51,25 @@ class ClassDepositController extends Controller
             ]);
         }
 
-        $attendanceStatuses = $this->verifiedAttendanceStatuses($schoolClass->id);
+        // Absensi hari ini (walau belum diverifikasi) langsung dipakai agar siswa tidak masuk otomatis ditandai.
+        $attendanceStatuses = $this->todayAttendanceStatuses($schoolClass->id);
 
         if ($attendanceStatuses !== []) {
-            foreach ($entries as $entry) {
-                $studentId = (int) $entry['student_id'];
-                $attendanceStatus = $attendanceStatuses[$studentId] ?? null;
+            $entries = $entries->map(function (array $entry) use ($attendanceStatuses): array {
+                $attendanceStatus = $attendanceStatuses[(int) $entry['student_id']] ?? null;
 
-                if ($attendanceStatus === AttendanceRecord::STATUS_ABSENT && $entry['status'] !== 'tidak_masuk') {
-                    throw ValidationException::withMessages([
-                        'entries' => 'Ada siswa yang sudah tercatat tidak masuk pada absensi terverifikasi. Muat ulang halaman lalu coba lagi.',
-                    ]);
+                if ($attendanceStatus === AttendanceRecord::STATUS_ABSENT) {
+                    $entry['status'] = 'tidak_masuk';
                 }
 
                 if ($attendanceStatus === AttendanceRecord::STATUS_PRESENT && $entry['status'] === 'tidak_masuk') {
                     throw ValidationException::withMessages([
-                        'entries' => 'Ada siswa yang tercatat masuk pada absensi terverifikasi sehingga tidak bisa ditandai tidak masuk.',
+                        'entries' => 'Ada siswa yang tercatat masuk pada absensi sehingga tidak bisa ditandai tidak masuk.',
                     ]);
                 }
-            }
+
+                return $entry;
+            });
         }
 
         $deposit = ClassDeposit::query()
@@ -129,6 +136,23 @@ class ClassDepositController extends Controller
                 ->where('class_deposit_id', $deposit->id)
                 ->whereNotIn('student_id', $studentIds)
                 ->delete();
+
+            // Pinjaman aktif tidak boleh hilang saat checklist dikirim ulang.
+            PhoneLoan::query()
+                ->where('class_id', $schoolClass->id)
+                ->whereNull('returned_at')
+                ->whereDate('starts_at', today())
+                ->get()
+                ->each(function (PhoneLoan $loan) use ($deposit, $studentIds): void {
+                    CollectionRecord::query()
+                        ->where('class_deposit_id', $deposit->id)
+                        ->whereIn('student_id', $loan->student_id ? [$loan->student_id] : $studentIds)
+                        ->where('status', 'dikumpulkan')
+                        ->update([
+                            'status' => 'sedang_dipinjam',
+                            'phone_loan_id' => $loan->id,
+                        ]);
+                });
 
             $deposit->setRelation('schoolClass', $schoolClass);
         });
@@ -227,12 +251,11 @@ class ClassDepositController extends Controller
     /**
      * @return array<int, string>
      */
-    private function verifiedAttendanceStatuses(int $classId): array
+    private function todayAttendanceStatuses(int $classId): array
     {
         $report = AttendanceReport::query()
             ->where('class_id', $classId)
             ->whereDate('report_date', today())
-            ->where('status', AttendanceReport::STATUS_VERIFIED)
             ->with('records:id,attendance_report_id,student_id,status')
             ->first();
 

@@ -32,7 +32,7 @@ class DashboardController extends Controller
         $classes = SchoolClass::query()
             ->with([
                 'homeroom:id,name',
-                'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
+                'students:id,user_id,class_id,nis,is_class_leader,is_class_vice_leader,is_class_secretary',
                 'students.user:id,name',
                 'students.collectionRecords' => fn ($query) => $query
                     ->whereDate('collection_date', today())
@@ -100,7 +100,7 @@ class DashboardController extends Controller
     {
         $schoolClass = $user->homeroomClass()
             ->with([
-                'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
+                'students:id,user_id,class_id,nis,is_class_leader,is_class_vice_leader,is_class_secretary',
                 'students.user:id,name',
                 'students.collectionRecords' => fn ($query) => $query
                     ->whereDate('collection_date', today())
@@ -176,11 +176,11 @@ class DashboardController extends Controller
         $attendance = $this->todayAttendance($student->class_id);
         $attendanceLocked = $this->attendanceLocked($student->class_id);
 
-        if ($student->is_class_leader) {
+        if ($student->is_class_leader || $student->is_class_vice_leader) {
             $schoolClass = SchoolClass::query()
                 ->with([
                     'homeroom:id,name',
-                    'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
+                    'students:id,user_id,class_id,nis,is_class_leader,is_class_vice_leader,is_class_secretary',
                     'students.user:id,name',
                     'students.collectionRecords' => fn ($query) => $query
                         ->whereDate('collection_date', today())
@@ -197,13 +197,13 @@ class DashboardController extends Controller
             );
 
             return Inertia::render('Dashboard', [
-                'role' => 'ketua_kelas',
+                'role' => $student->is_class_leader ? 'ketua_kelas' : 'wakil_ketua',
                 'date' => today()->toDateString(),
                 'schoolClass' => $schoolClass,
                 'attendance' => $attendance,
                 'attendanceLocked' => $attendanceLocked,
                 'ownStatus' => $ownStatus,
-                'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_secretary']),
+                'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_vice_leader', 'is_class_secretary']),
                 'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
                 'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
             ]);
@@ -213,11 +213,21 @@ class DashboardController extends Controller
             $schoolClass = SchoolClass::query()
                 ->with([
                     'homeroom:id,name',
-                    'students:id,user_id,class_id,nis,is_class_leader,is_class_secretary',
+                    'students:id,user_id,class_id,nis,is_class_leader,is_class_vice_leader,is_class_secretary',
                     'students.user:id,name',
+                    'students.collectionRecords' => fn ($query) => $query
+                        ->whereDate('collection_date', today())
+                        ->whereNotNull('class_deposit_id')
+                        ->latest('id'),
                 ])
                 ->withCount('students')
                 ->find($student->class_id);
+
+            $this->attachDeposit(
+                $schoolClass,
+                $deposit,
+                $this->shortageCountFor($student->class_id),
+            );
 
             return Inertia::render('Dashboard', [
                 'role' => 'sekretaris',
@@ -225,7 +235,8 @@ class DashboardController extends Controller
                 'schoolClass' => $schoolClass,
                 'attendance' => $attendance,
                 'attendanceLocked' => $attendanceLocked,
-                'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_secretary']),
+                'checklistFallback' => $schoolClass->classLeadersAbsentToday(),
+                'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_vice_leader', 'is_class_secretary']),
                 'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
                 'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
             ]);
@@ -238,7 +249,7 @@ class DashboardController extends Controller
             'deposit' => $deposit,
             'attendance' => $attendance,
             'ownStatus' => $ownStatus,
-            'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_secretary']),
+            'student' => $student->only(['id', 'nis', 'is_class_leader', 'is_class_vice_leader', 'is_class_secretary']),
             'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
             'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
         ]);

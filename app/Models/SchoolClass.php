@@ -62,4 +62,32 @@ class SchoolClass extends Model
     {
         return $this->hasMany(AttendanceReport::class, 'class_id');
     }
+
+    /**
+     * Ketua dan wakil ketua sama-sama tercatat tidak masuk hari ini.
+     * Kelas tanpa ketua/wakil dianggap tidak punya pemimpin yang hadir.
+     */
+    public function classLeadersAbsentToday(): bool
+    {
+        $leaderIds = $this->students()
+            ->where(fn (Builder $query) => $query
+                ->where('is_class_leader', true)
+                ->orWhere('is_class_vice_leader', true))
+            ->pluck('id');
+
+        if ($leaderIds->isEmpty()) {
+            return true;
+        }
+
+        $statuses = $this->attendanceReports()
+            ->whereDate('report_date', today())
+            ->with('records:id,attendance_report_id,student_id,status')
+            ->first()?->records
+            ->mapWithKeys(fn (AttendanceRecord $record) => [(int) $record->student_id => $record->status])
+            ?? collect();
+
+        return $leaderIds->every(
+            fn ($id) => $statuses->get($id) === AttendanceRecord::STATUS_ABSENT,
+        );
+    }
 }

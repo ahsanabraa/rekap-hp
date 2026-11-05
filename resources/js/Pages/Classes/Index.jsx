@@ -336,7 +336,7 @@ export default function Index({ classes, teachers }) {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Nama</TableHead>
-                                        <TableHead>Username</TableHead>
+                                        <TableHead>NPK</TableHead>
                                         <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
