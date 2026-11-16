@@ -7,7 +7,15 @@ import { Label } from '@/Components/ui/label';
 import { Picker } from '@/Components/ui/picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/Components/ui/table';
 import { Badge } from '@/Components/ui/badge';
-import { Users, Plus, RotateCcw, Loader2, Crown, ClipboardList, UserCheck } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/Components/ui/dropdown-menu';
+import { Users, Plus, RotateCcw, Loader2, Crown, ClipboardList, UserCheck, MoreHorizontal } from 'lucide-react';
 import { useFeedback } from '@/Components/FeedbackProvider';
 
 export default function Index({ students, classes }) {
@@ -227,111 +235,99 @@ export default function Index({ students, classes }) {
                                             </TableCell>
                                             <TableCell><code className="bg-bg-tertiary px-2 py-0.5 rounded text-xs">{student.user.username}</code></TableCell>
                                             <TableCell>
-                                                <div className="flex flex-col items-start gap-1.5">
-                                                    {student.is_class_leader ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Badge variant="success">
-                                                                <Crown className="mr-1 h-3 w-3" aria-hidden="true" />
-                                                                Ketua
-                                                            </Badge>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => toggleClassLeader(student)}
-                                                                className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
-                                                            >
-                                                                Cabut
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => toggleClassLeader(student)}
-                                                            disabled={student.is_class_secretary || student.is_class_vice_leader}
-                                                            title={
-                                                                student.is_class_secretary
-                                                                    ? 'Siswa ini sudah menjadi sekretaris kelas'
-                                                                    : student.is_class_vice_leader
-                                                                      ? 'Siswa ini sudah menjadi wakil ketua kelas'
-                                                                      : undefined
-                                                            }
-                                                            className="text-text-secondary hover:text-text"
-                                                        >
-                                                            <Crown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                                            Jadikan Ketua
-                                                        </Button>
+                                                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                                    {student.is_class_leader && (
+                                                        <Badge variant="success">
+                                                            <Crown className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                            Ketua
+                                                        </Badge>
                                                     )}
+                                                    {student.is_class_secretary && (
+                                                        <Badge variant="primary">
+                                                            <ClipboardList className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                            Sekretaris
+                                                        </Badge>
+                                                    )}
+                                                    {student.is_class_vice_leader && (
+                                                        <Badge variant="warning">
+                                                            <UserCheck className="mr-1 h-3 w-3" aria-hidden="true" />
+                                                            Wakil
+                                                        </Badge>
+                                                    )}
+                                                    {!student.is_class_leader &&
+                                                        !student.is_class_secretary &&
+                                                        !student.is_class_vice_leader && (
+                                                            <span className="text-xs text-text-muted">
+                                                                Belum ada peran
+                                                            </span>
+                                                        )}
 
-                                                    {student.is_class_secretary ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Badge variant="primary">
-                                                                <ClipboardList className="mr-1 h-3 w-3" aria-hidden="true" />
-                                                                Sekretaris
-                                                            </Badge>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={() => toggleClassSecretary(student)}
-                                                                className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                                className="h-7 gap-1 px-2 text-xs text-text-secondary"
                                                             >
-                                                                Cabut
+                                                                <MoreHorizontal
+                                                                    className="h-3.5 w-3.5"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                Atur peran
                                                             </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => toggleClassSecretary(student)}
-                                                            disabled={student.is_class_leader || student.is_class_vice_leader}
-                                                            title={
-                                                                student.is_class_leader
-                                                                    ? 'Siswa ini sudah menjadi ketua kelas'
-                                                                    : student.is_class_vice_leader
-                                                                      ? 'Siswa ini sudah menjadi wakil ketua kelas'
-                                                                      : undefined
-                                                            }
-                                                            className="text-text-secondary hover:text-text"
-                                                        >
-                                                            <ClipboardList className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                                            Jadikan Sekretaris
-                                                        </Button>
-                                                    )}
-
-                                                    {student.is_class_vice_leader ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <Badge variant="warning">
-                                                                <UserCheck className="mr-1 h-3 w-3" aria-hidden="true" />
-                                                                Wakil Ketua
-                                                            </Badge>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => toggleClassViceLeader(student)}
-                                                                className="h-7 px-1.5 text-xs text-text-muted hover:text-danger"
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-56">
+                                                            <DropdownMenuLabel className="text-xs font-medium text-text-muted">
+                                                                Peran kelas
+                                                            </DropdownMenuLabel>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                onSelect={() => toggleClassLeader(student)}
+                                                                disabled={
+                                                                    !student.is_class_leader &&
+                                                                    (student.is_class_secretary ||
+                                                                        student.is_class_vice_leader)
+                                                                }
                                                             >
-                                                                Cabut
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => toggleClassViceLeader(student)}
-                                                            disabled={student.is_class_leader || student.is_class_secretary}
-                                                            title={
-                                                                student.is_class_leader
-                                                                    ? 'Siswa ini sudah menjadi ketua kelas'
-                                                                    : student.is_class_secretary
-                                                                      ? 'Siswa ini sudah menjadi sekretaris kelas'
-                                                                      : undefined
-                                                            }
-                                                            className="text-text-secondary hover:text-text"
-                                                        >
-                                                            <UserCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                                                            Jadikan Wakil
-                                                        </Button>
-                                                    )}
+                                                                <Crown className="mr-2 h-4 w-4" aria-hidden="true" />
+                                                                {student.is_class_leader
+                                                                    ? 'Cabut ketua kelas'
+                                                                    : 'Jadikan ketua kelas'}
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onSelect={() => toggleClassSecretary(student)}
+                                                                disabled={
+                                                                    !student.is_class_secretary &&
+                                                                    (student.is_class_leader ||
+                                                                        student.is_class_vice_leader)
+                                                                }
+                                                            >
+                                                                <ClipboardList
+                                                                    className="mr-2 h-4 w-4"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                {student.is_class_secretary
+                                                                    ? 'Cabut sekretaris'
+                                                                    : 'Jadikan sekretaris'}
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onSelect={() => toggleClassViceLeader(student)}
+                                                                disabled={
+                                                                    !student.is_class_vice_leader &&
+                                                                    (student.is_class_leader ||
+                                                                        student.is_class_secretary)
+                                                                }
+                                                            >
+                                                                <UserCheck
+                                                                    className="mr-2 h-4 w-4"
+                                                                    aria-hidden="true"
+                                                                />
+                                                                {student.is_class_vice_leader
+                                                                    ? 'Cabut wakil ketua'
+                                                                    : 'Jadikan wakil ketua'}
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">

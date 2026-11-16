@@ -303,7 +303,7 @@ class AttendanceReportTest extends TestCase
         $this->actingAs($secretaryUser)
             ->get(route('dashboard'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
+                ->component('Dashboard/Sekretaris')
                 ->where('role', 'sekretaris')
                 ->where('schoolClass.id', $schoolClass->id)
                 ->has('schoolClass.students', 3)
@@ -336,9 +336,9 @@ class AttendanceReportTest extends TestCase
         ]);
 
         $schoolClass = SchoolClass::create([
-            'name' => 'Kelas 10 A',
             'grade' => '10',
-            'group_name' => 'A',
+            'jurusan' => 'RPL',
+            'rombel' => 1,
             'homeroom_user_id' => $teacher->id,
         ]);
 

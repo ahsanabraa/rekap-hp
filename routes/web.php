@@ -25,6 +25,14 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
+Route::get('/monitoring', [DashboardController::class, 'monitoring'])
+    ->middleware(['auth', 'verified', 'role:kesiswaan'])
+    ->name('monitoring.index');
+
+Route::get('/status', [DashboardController::class, 'status'])
+    ->middleware(['auth', 'verified', 'role:kesiswaan,wali_kelas'])
+    ->name('status.index');
+
 Route::post('/class-deposits', [ClassDepositController::class, 'store'])
     ->middleware(['auth', 'role:siswa'])
     ->name('class-deposits.store');

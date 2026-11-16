@@ -29,9 +29,9 @@ import {
 
 const navigationByRole = {
     kesiswaan: [
-        { name: 'Ringkasan', href: '/dashboard#ringkasan', section: 'ringkasan', icon: LayoutDashboard },
-        { name: 'Monitoring kelas', href: '/dashboard#monitoring', section: 'monitoring', icon: ClipboardList },
-        { name: 'Status per siswa', href: '/dashboard#status-per-siswa', section: 'status-per-siswa', icon: Users },
+        { name: 'Ringkasan', href: '/dashboard', icon: LayoutDashboard },
+        { name: 'Monitoring kelas', href: '/monitoring', icon: ClipboardList },
+        { name: 'Status per siswa', href: '/status', icon: Users },
         { name: 'Peminjaman', href: '/loans', icon: Smartphone },
         { name: 'Kelas', href: '/classes', icon: BookOpen },
         { name: 'Siswa', href: '/students', icon: GraduationCap },
@@ -39,7 +39,7 @@ const navigationByRole = {
     wali_kelas: [
         { name: 'Absensi', href: '/dashboard#absensi', section: 'absensi', icon: ClipboardCheck },
         { name: 'Ringkasan setoran', href: '/dashboard#ringkasan-setoran', section: 'ringkasan-setoran', icon: PackageCheck },
-        { name: 'Status per siswa', href: '/dashboard#status-per-siswa', section: 'status-per-siswa', icon: Users },
+        { name: 'Status per siswa', href: '/status', icon: Users },
     ],
     ketua_kelas: [
         { name: 'Ringkasan setoran', href: '/dashboard#ringkasan', section: 'ringkasan', icon: PackageCheck },
@@ -160,9 +160,18 @@ export default function AuthenticatedLayout({ header, children }) {
 
         if (window.location.pathname === '/dashboard') {
             const target = document.getElementById(item.section);
+
             if (target) {
+                const nextUrl = `/dashboard${hash}`;
+
+                // Hash navigation stays inside the current page and keeps the
+                // browser back/forward history intact.
+                window.history.pushState(
+                    { ...(window.history.state ?? {}), url: nextUrl },
+                    '',
+                    nextUrl,
+                );
                 target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                window.history.replaceState(window.history.state, '', `/dashboard${hash}`);
                 setActiveHash(hash);
                 return;
             }

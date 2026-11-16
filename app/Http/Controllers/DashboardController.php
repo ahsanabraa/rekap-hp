@@ -17,7 +17,13 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user->role === 'kesiswaan') {
-            return $this->kesiswaanDashboard();
+            return Inertia::render('Dashboard/Kesiswaan', [
+                'role' => 'kesiswaan',
+                'date' => today()->toDateString(),
+                'summary' => $this->kesiswaanSummary(),
+                'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
+                'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+            ]);
         }
 
         if ($user->role === 'wali_kelas') {
@@ -27,7 +33,78 @@ class DashboardController extends Controller
         return $this->siswaDashboard($user);
     }
 
-    private function kesiswaanDashboard(): Response
+    public function monitoring(): Response
+    {
+        return Inertia::render('Dashboard/Monitoring', [
+            'role' => 'kesiswaan',
+            'date' => today()->toDateString(),
+            'classes' => $this->kesiswaanClasses(),
+            'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+        ]);
+    }
+
+    public function status(Request $request): Response
+    {
+        $user = $request->user();
+
+        if ($user->role === 'kesiswaan') {
+            return Inertia::render('Dashboard/Status', [
+                'role' => 'kesiswaan',
+                'date' => today()->toDateString(),
+                'classes' => $this->kesiswaanClasses(),
+                'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+            ]);
+        }
+
+        if ($user->role === 'wali_kelas') {
+            return Inertia::render('Dashboard/Status', [
+                'role' => 'wali_kelas',
+                'date' => today()->toDateString(),
+                'schoolClass' => $this->waliKelasClass($user),
+                'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
+            ]);
+        }
+
+        abort(403);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function kesiswaanSummary(): array
+    {
+        $classes = SchoolClass::query()
+            ->withCount('students')
+            ->get(['id', 'name']);
+
+        $deposits = ClassDeposit::query()
+            ->whereDate('deposit_date', today())
+            ->get();
+
+        $attendances = AttendanceReport::query()
+            ->whereDate('report_date', today())
+            ->get();
+
+        $shortageCounts = $this->shortageCounts();
+
+        return [
+            'total_classes' => $classes->count(),
+            'submitted_classes' => $deposits->count(),
+            'verified_classes' => $deposits->whereNotNull('verified_count')->count(),
+            'shortage_classes' => $deposits->filter(fn (ClassDeposit $deposit) => $deposit->hasShortage())->count(),
+            'flagged_classes' => $classes
+                ->filter(fn (SchoolClass $schoolClass) => ($shortageCounts[$schoolClass->id] ?? 0) >= ClassDeposit::ATTENTION_THRESHOLD)
+                ->count(),
+            'total_students' => (int) $classes->sum('students_count'),
+            'reported_total' => (int) $deposits->sum('reported_count'),
+            'verified_total' => (int) $deposits->sum(fn (ClassDeposit $deposit) => $deposit->verified_count ?? 0),
+            'attendance_submitted_classes' => $attendances->count(),
+            'attendance_verified_classes' => $attendances->filter(fn (AttendanceReport $report) => $report->isVerified())->count(),
+            'absent_total' => (int) $attendances->sum(fn (AttendanceReport $report) => $report->absentTotal()),
+        ];
+    }
+
+    private function kesiswaanClasses()
     {
         $classes = SchoolClass::query()
             ->with([
@@ -71,32 +148,10 @@ class DashboardController extends Controller
             );
         });
 
-        $deposits = $classes->pluck('deposit')->filter();
-        $attendances = $classes->pluck('attendance')->filter();
-
-        return Inertia::render('Dashboard', [
-            'role' => 'kesiswaan',
-            'date' => today()->toDateString(),
-            'classes' => $classes,
-            'summary' => [
-                'total_classes' => $classes->count(),
-                'submitted_classes' => $deposits->count(),
-                'verified_classes' => $deposits->whereNotNull('verified_count')->count(),
-                'shortage_classes' => $deposits->filter(fn (ClassDeposit $deposit) => $deposit->hasShortage())->count(),
-                'flagged_classes' => $classes->where('needs_attention', true)->count(),
-                'total_students' => (int) $classes->sum('students_count'),
-                'reported_total' => (int) $deposits->sum('reported_count'),
-                'verified_total' => (int) $deposits->sum(fn (ClassDeposit $deposit) => $deposit->verified_count ?? 0),
-                'attendance_submitted_classes' => $attendances->count(),
-                'attendance_verified_classes' => $attendances->filter(fn (AttendanceReport $report) => $report->isVerified())->count(),
-                'absent_total' => (int) $attendances->sum(fn (AttendanceReport $report) => $report->absentTotal()),
-            ],
-            'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
-            'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
-        ]);
+        return $classes;
     }
 
-    private function waliKelasDashboard($user): Response
+    private function waliKelasClass($user): ?SchoolClass
     {
         $schoolClass = $user->homeroomClass()
             ->with([
@@ -134,10 +189,15 @@ class DashboardController extends Controller
             );
         }
 
-        return Inertia::render('Dashboard', [
+        return $schoolClass;
+    }
+
+    private function waliKelasDashboard($user): Response
+    {
+        return Inertia::render('Dashboard/WaliKelas', [
             'role' => 'wali_kelas',
             'date' => today()->toDateString(),
-            'schoolClass' => $schoolClass,
+            'schoolClass' => $this->waliKelasClass($user),
             'flagThreshold' => ClassDeposit::ATTENTION_THRESHOLD,
             'flagWindowDays' => ClassDeposit::ATTENTION_WINDOW_DAYS,
         ]);
@@ -148,7 +208,7 @@ class DashboardController extends Controller
         $student = $user->student()->with('schoolClass:id,name')->first();
 
         if (! $student) {
-            return Inertia::render('Dashboard', [
+            return Inertia::render('Dashboard/Siswa', [
                 'role' => 'siswa',
                 'date' => today()->toDateString(),
                 'schoolClass' => null,
@@ -207,7 +267,7 @@ class DashboardController extends Controller
                 $this->shortageCountFor($student->class_id),
             );
 
-            return Inertia::render('Dashboard', [
+            return Inertia::render('Dashboard/KetuaKelas', [
                 'role' => $student->is_class_leader ? 'ketua_kelas' : 'wakil_ketua',
                 'date' => today()->toDateString(),
                 'schoolClass' => $schoolClass,
@@ -240,7 +300,7 @@ class DashboardController extends Controller
                 $this->shortageCountFor($student->class_id),
             );
 
-            return Inertia::render('Dashboard', [
+            return Inertia::render('Dashboard/Sekretaris', [
                 'role' => 'sekretaris',
                 'date' => today()->toDateString(),
                 'schoolClass' => $schoolClass,
@@ -279,7 +339,7 @@ class DashboardController extends Controller
             'sedang_dipinjam' => $history->where('status', 'sedang_dipinjam')->count(),
         ];
 
-        return Inertia::render('Dashboard', [
+        return Inertia::render('Dashboard/Siswa', [
             'role' => 'siswa',
             'date' => today()->toDateString(),
             'schoolClass' => $student->schoolClass?->only(['id', 'name']),

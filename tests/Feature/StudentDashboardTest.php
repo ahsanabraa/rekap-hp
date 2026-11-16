@@ -64,7 +64,7 @@ class StudentDashboardTest extends TestCase
         $this->actingAs($user)->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
+                ->component('Dashboard/Siswa')
                 ->where('role', 'siswa')
                 ->where('activeLoan.id', $loan->id)
                 ->where('history.0.status', 'sedang_dipinjam')

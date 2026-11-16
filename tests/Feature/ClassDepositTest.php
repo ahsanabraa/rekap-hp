@@ -305,7 +305,7 @@ class ClassDepositTest extends TestCase
     public function test_kesiswaan_cannot_note_students_from_another_class(): void
     {
         [$schoolClass, $students, , $leaderUser] = $this->makeClass();
-        [, $otherStudents] = $this->makeClass(3, 'B');
+        [, $otherStudents] = $this->makeClass(3, '2');
         $kesiswaan = $this->makeKesiswaan();
 
         $this->actingAs($leaderUser)->post(route('class-deposits.store'), [
@@ -393,12 +393,19 @@ class ClassDepositTest extends TestCase
         }
 
         $this->actingAs($kesiswaan)
-            ->get(route('dashboard'))
+            ->get(route('monitoring.index'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
+                ->component('Dashboard/Monitoring')
                 ->where('role', 'kesiswaan')
                 ->where('classes.0.shortages_last_30_days', 3)
                 ->where('classes.0.needs_attention', true)
+            );
+
+        $this->actingAs($kesiswaan)
+            ->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Kesiswaan')
+                ->where('role', 'kesiswaan')
                 ->where('summary.flagged_classes', 1)
             );
     }
@@ -410,7 +417,7 @@ class ClassDepositTest extends TestCase
         $this->actingAs($leaderUser)
             ->get(route('dashboard'))
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
+                ->component('Dashboard/KetuaKelas')
                 ->where('role', 'ketua_kelas')
                 ->where('schoolClass.id', $schoolClass->id)
                 ->has('schoolClass.students', 3)
@@ -420,7 +427,7 @@ class ClassDepositTest extends TestCase
     /**
      * @return array{0: SchoolClass, 1: array<int, Student>, 2: User, 3: User}
      */
-    private function makeClass(int $studentCount = 3, string $group = 'A'): array
+    private function makeClass(int $studentCount = 3, string $rombel = '1'): array
     {
         $teacher = User::factory()->create([
             'role' => 'wali_kelas',
@@ -428,9 +435,9 @@ class ClassDepositTest extends TestCase
         ]);
 
         $schoolClass = SchoolClass::create([
-            'name' => 'Kelas 10 '.$group,
             'grade' => '10',
-            'group_name' => $group,
+            'jurusan' => 'RPL',
+            'rombel' => (int) $rombel,
             'homeroom_user_id' => $teacher->id,
         ]);
 
@@ -446,7 +453,7 @@ class ClassDepositTest extends TestCase
             $students[] = Student::create([
                 'user_id' => $user->id,
                 'class_id' => $schoolClass->id,
-                'nis' => 'TEST'.$group.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+                'nis' => 'TEST'.$rombel.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'is_class_leader' => $index === 0,
             ]);
 

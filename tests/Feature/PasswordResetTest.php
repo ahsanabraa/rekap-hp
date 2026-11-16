@@ -17,9 +17,9 @@ class PasswordResetTest extends TestCase
     {
         $teacher = User::factory()->create(['role' => 'wali_kelas']);
         $schoolClass = SchoolClass::create([
-            'name' => 'Kelas 10 A',
             'grade' => '10',
-            'group_name' => 'A',
+            'jurusan' => 'RPL',
+            'rombel' => 1,
             'homeroom_user_id' => $teacher->id,
         ]);
 
@@ -55,9 +55,9 @@ class PasswordResetTest extends TestCase
         [$teacher] = $this->makeWalasWithClass();
         $otherTeacher = User::factory()->create(['role' => 'wali_kelas']);
         $otherClass = SchoolClass::create([
-            'name' => 'Kelas 10 B',
             'grade' => '10',
-            'group_name' => 'B',
+            'jurusan' => 'RPL',
+            'rombel' => 2,
             'homeroom_user_id' => $otherTeacher->id,
         ]);
         $student = $this->makeStudent($otherClass);
